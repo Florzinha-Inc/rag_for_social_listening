@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 import logging
-from sales_rag_py import SalesAssistant
+from sales_assistant import SalesAssistant
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
