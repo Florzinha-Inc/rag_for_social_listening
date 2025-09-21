@@ -283,15 +283,18 @@ def get_stats():
         return jsonify({'error': str(e)}), 500
 
 # Initialize assistant on startup
-@app.before_first_request
-def startup():
-    """Initialize assistant when app starts"""
+def create_app():
+    """Application factory pattern"""
     logger.info("Starting Sales RAG Assistant...")
     success = initialize_assistant()
     if success:
         logger.info("Assistant initialized successfully")
     else:
         logger.warning("Assistant initialization failed - will retry on first request")
+    return app
+
+# Initialize the app
+create_app()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
