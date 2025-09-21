@@ -1,9 +1,7 @@
-flask==2.3.3
-flask-cors==4.0.0
-pandas>=2.0.0,<2.2.0
-numpy>=1.24.0,<1.26.0
-requests>=2.31.0
-google-generativeai>=0.3.0
-sentence-transformers>=2.2.0
-chromadb>=0.4.0,<0.5.0
-gunicorn>=21.0.0
+flask
+flask-cors
+requests
+google-generativeai
+sentence-transformers
+chromadb
+gunicorn
