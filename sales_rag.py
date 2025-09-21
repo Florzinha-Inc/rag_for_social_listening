@@ -1,5 +1,3 @@
-import pandas as pd
-import numpy as np
 import os
 import requests
 import json
@@ -337,7 +335,7 @@ class SalesAssistant:
         self.notion_extractor = NotionExtractor(notion_api_key)
         self.vector_store = VectorStore()
         self.rag_system = SalesRAG(self.vector_store, google_api_key)
-        self.knowledge_df = pd.DataFrame()
+        self.documents = []  # Store documents as a simple list instead of DataFrame
     
     def load_from_notion(self, database_configs: Dict[str, str]):
         """Load content from Notion databases"""
@@ -353,9 +351,7 @@ class SalesAssistant:
                     logger.error(f"Error extracting {content_type}: {e}")
         
         if all_documents:
-            self.knowledge_df = pd.DataFrame(all_documents)
-            self.knowledge_df['extraction_date'] = datetime.now()
-            self.knowledge_df['word_count'] = self.knowledge_df['content'].str.split().str.len()
+            self.documents = all_documents
             
             # Add to vector store
             self.vector_store.add_documents(all_documents)
@@ -370,10 +366,16 @@ class SalesAssistant:
     
     def get_stats(self) -> Dict:
         """Get system statistics"""
+        # Count documents by content type manually
+        content_types = {}
+        for doc in self.documents:
+            content_type = doc.get('content_type', 'unknown')
+            content_types[content_type] = content_types.get(content_type, 0) + 1
+        
         stats = {
             'knowledge_base': {
-                'total_documents': len(self.knowledge_df),
-                'content_types': self.knowledge_df['content_type'].value_counts().to_dict() if not self.knowledge_df.empty else {}
+                'total_documents': len(self.documents),
+                'content_types': content_types
             },
             'vector_store': self.vector_store.get_stats(),
             'conversations': len(self.rag_system.conversation_history)
