@@ -6,5 +6,3 @@ sentence-transformers==2.2.2
 chromadb==0.4.22
 gunicorn==21.2.0
 Werkzeug==2.3.7
-torch==2.1.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
-torchvision==0.16.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
