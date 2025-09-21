@@ -5,11 +5,14 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 import logging
 import time
+import pickle
+from collections import defaultdict
 
-# AI and Vector Search
+# AI and Vector Search (lightweight alternatives)
 import google.generativeai as genai
-from sentence_transformers import SentenceTransformer
-import chromadb
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Configuration
 logging.basicConfig(level=logging.INFO)
@@ -126,17 +129,20 @@ class NotionExtractor:
         return processed_pages
 
 
-class VectorStore:
-    """Manage vector embeddings and search"""
+class LightweightVectorStore:
+    """Lightweight vector store using TF-IDF instead of sentence transformers"""
     
-    def __init__(self, persist_directory: str = "./chroma_db"):
-        self.persist_directory = persist_directory
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.client = chromadb.PersistentClient(path=persist_directory)
-        self.collection = self.client.get_or_create_collection(
-            name="sales_knowledge",
-            metadata={"description": "Sales knowledge base"}
+    def __init__(self):
+        self.vectorizer = TfidfVectorizer(
+            max_features=5000,
+            stop_words='english',
+            ngram_range=(1, 2),
+            max_df=0.8,
+            min_df=2
         )
+        self.documents = []
+        self.document_vectors = None
+        self.metadata = []
     
     def chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
         """Split text into overlapping chunks"""
@@ -156,14 +162,12 @@ class VectorStore:
     def add_documents(self, documents: List[Dict]):
         """Add documents to vector store"""
         all_chunks = []
-        all_metadatas = []
-        all_ids = []
+        all_metadata = []
         
         for doc in documents:
             chunks = self.chunk_text(doc['content'])
             
             for chunk_idx, chunk in enumerate(chunks):
-                chunk_id = f"{doc['id']}_{chunk_idx}"
                 metadata = {
                     'title': doc['title'],
                     'content_type': doc['content_type'],
@@ -173,43 +177,47 @@ class VectorStore:
                 }
                 
                 all_chunks.append(chunk)
-                all_metadatas.append(metadata)
-                all_ids.append(chunk_id)
+                all_metadata.append(metadata)
         
-        # Create embeddings and add to collection
-        embeddings = self.embedding_model.encode(all_chunks)
-        
-        self.collection.add(
-            documents=all_chunks,
-            embeddings=embeddings.tolist(),
-            metadatas=all_metadatas,
-            ids=all_ids
-        )
+        if all_chunks:
+            self.documents = all_chunks
+            self.metadata = all_metadata
+            
+            # Create TF-IDF vectors
+            self.document_vectors = self.vectorizer.fit_transform(all_chunks)
+            logger.info(f"Added {len(all_chunks)} chunks to vector store")
     
     def search(self, query: str, n_results: int = 5) -> Dict:
-        """Search for relevant documents"""
-        query_embedding = self.embedding_model.encode([query])[0]
+        """Search for relevant documents using TF-IDF similarity"""
+        if not self.documents or self.document_vectors is None:
+            return {'documents': [], 'metadatas': [], 'distances': []}
         
-        results = self.collection.query(
-            query_embeddings=[query_embedding.tolist()],
-            n_results=n_results
-        )
+        # Transform query using the same vectorizer
+        query_vector = self.vectorizer.transform([query])
         
-        return {
-            'documents': results['documents'][0] if results['documents'] else [],
-            'metadatas': results['metadatas'][0] if results['metadatas'] else [],
-            'distances': results['distances'][0] if results['distances'] else []
+        # Calculate cosine similarity
+        similarities = cosine_similarity(query_vector, self.document_vectors).flatten()
+        
+        # Get top results
+        top_indices = np.argsort(similarities)[::-1][:n_results]
+        
+        results = {
+            'documents': [self.documents[i] for i in top_indices],
+            'metadatas': [self.metadata[i] for i in top_indices],
+            'distances': [1 - similarities[i] for i in top_indices]  # Convert similarity to distance
         }
+        
+        return results
     
     def get_stats(self) -> Dict:
         """Get collection statistics"""
-        return {'total_chunks': self.collection.count()}
+        return {'total_chunks': len(self.documents)}
 
 
 class SalesRAG:
     """RAG system for sales knowledge using Google Gemini"""
     
-    def __init__(self, vector_store: VectorStore, google_api_key: str):
+    def __init__(self, vector_store: LightweightVectorStore, google_api_key: str):
         self.vector_store = vector_store
         genai.configure(api_key=google_api_key)
         self.model = genai.GenerativeModel('gemini-1.5-flash')
@@ -254,7 +262,7 @@ Provide clear explanations with business benefits and use cases."""
             search_results['metadatas'], 
             search_results['distances']
         ):
-            if distance < 1.2:  # Only include relevant results
+            if distance < 0.8:  # Only include relevant results (adjusted for TF-IDF)
                 context_parts.append(f"[{metadata['content_type'].upper()}] {metadata['title']}\n{doc}")
         
         return "\n\n---\n\n".join(context_parts)
@@ -306,7 +314,7 @@ Provide a helpful answer based on the context. If no relevant context, say so cl
         seen_titles = set()
         for metadata, distance in zip(search_results['metadatas'], search_results['distances']):
             title = metadata['title']
-            if title not in seen_titles and distance < 1.2:
+            if title not in seen_titles and distance < 0.8:
                 sources.append({
                     'title': title,
                     'type': metadata['content_type'],
@@ -333,9 +341,9 @@ class SalesAssistant:
     
     def __init__(self, notion_api_key: str, google_api_key: str):
         self.notion_extractor = NotionExtractor(notion_api_key)
-        self.vector_store = VectorStore()
+        self.vector_store = LightweightVectorStore()
         self.rag_system = SalesRAG(self.vector_store, google_api_key)
-        self.documents = []  # Store documents as a simple list instead of DataFrame
+        self.documents = []
     
     def load_from_notion(self, database_configs: Dict[str, str]):
         """Load content from Notion databases"""
