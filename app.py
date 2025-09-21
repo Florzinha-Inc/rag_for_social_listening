@@ -1,385 +1,257 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import os
-from sales_rag import SalesAssistant
+from flask import Flask, request, jsonify, render_template_string
+from flask_cors import CORS
+import logging
+from sales_rag_py import SalesAssistant
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 CORS(app)
 
-# Initialize assistant
-print("Initializing Sales Assistant...")
-try:
-    assistant = SalesAssistant(
-        os.environ.get('NOTION_API_KEY'), 
-        os.environ.get('GOOGLE_API_KEY')
-    )
-    
-    databases = {
-        'playbooks': os.environ.get('PLAYBOOKS_DB_ID'),
-        'competitive': os.environ.get('COMPETITIVE_DB_ID'),
-        'objections': os.environ.get('OBJECTIONS_DB_ID'),
-        'case_studies': os.environ.get('CASE_STUDIES_DB_ID'),
-        'products': os.environ.get('PRODUCTS_DB_ID')
-    }
-    
-    doc_count = assistant.load_from_notion(databases)
-    print(f"Assistant initialized! Loaded {doc_count} documents")
-    
-except Exception as e:
-    print(f"Error initializing assistant: {e}")
-    assistant = None
+# Global variable to store the assistant
+assistant = None
 
+def initialize_assistant():
+    """Initialize the sales assistant with environment variables"""
+    global assistant
+    
+    notion_api_key = os.getenv('NOTION_API_KEY')
+    google_api_key = os.getenv('GOOGLE_API_KEY')
+    
+    if not notion_api_key or not google_api_key:
+        logger.error("Missing required environment variables")
+        return False
+    
+    try:
+        assistant = SalesAssistant(notion_api_key, google_api_key)
+        
+        # Load databases
+        database_configs = {
+            'playbooks': os.getenv('PLAYBOOKS_DB_ID', ''),
+            'competitive': os.getenv('COMPETITIVE_DB_ID', ''),
+            'case_studies': os.getenv('CASE_STUDIES_DB_ID', ''),
+            'products': os.getenv('PRODUCTS_DB_ID', ''),
+            'objections': os.getenv('OBJECTIONS_DB_ID', '')
+        }
+        
+        # Filter out empty database IDs
+        database_configs = {k: v for k, v in database_configs.items() if v}
+        
+        if database_configs:
+            docs_loaded = assistant.load_from_notion(database_configs)
+            logger.info(f"Loaded {docs_loaded} documents from Notion")
+        else:
+            logger.warning("No database IDs provided")
+        
+        return True
+    except Exception as e:
+        logger.error(f"Error initializing assistant: {e}")
+        return False
+
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Railway"""
+    return jsonify({'status': 'healthy', 'service': 'sales-rag-assistant'})
+
+# Main interface
 @app.route('/')
-def chat_interface():
-    return """
+def index():
+    """Main interface for the sales assistant"""
+    html_template = '''
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-        <title>Sales Knowledge Assistant</title>
+        <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sales RAG Assistant</title>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
-            
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                max-width: 800px; 
+                margin: 0 auto; 
+                padding: 20px; 
+                background: #f5f5f5; 
             }
-            
-            body {
-                font-family: 'Space Mono', monospace;
-                background: #fafafa;
-                height: 100vh;
-                display: flex;
-                flex-direction: column;
+            .container { 
+                background: white; 
+                padding: 30px; 
+                border-radius: 10px; 
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
             }
-            
-            .chat-container {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                max-width: 600px;
-                margin: 0 auto;
-                background: white;
-                border: 1px solid #e0e0e0;
-                width: 100%;
+            h1 { 
+                color: #333; 
+                text-align: center; 
+                margin-bottom: 30px; 
             }
-            
-            .chat-header {
-                background: #1a1a1a;
-                color: #fafafa;
-                padding: 20px;
-                text-align: center;
+            .input-group { 
+                margin-bottom: 20px; 
             }
-            
-            .chat-title {
-                font-size: 18px;
-                font-weight: 700;
-                margin-bottom: 5px;
+            label { 
+                display: block; 
+                margin-bottom: 5px; 
+                font-weight: 600; 
+                color: #555; 
             }
-            
-            .chat-subtitle {
-                font-size: 12px;
-                opacity: 0.8;
+            input, textarea { 
+                width: 100%; 
+                padding: 12px; 
+                border: 2px solid #ddd; 
+                border-radius: 6px; 
+                font-size: 16px; 
+                box-sizing: border-box; 
             }
-            
-            .chat-messages {
-                flex: 1;
-                overflow-y: auto;
-                padding: 20px;
-                display: flex;
-                flex-direction: column;
-                gap: 15px;
-                min-height: 400px;
+            textarea { 
+                height: 100px; 
+                resize: vertical; 
             }
-            
-            .message {
-                max-width: 80%;
-                padding: 12px 16px;
-                border-radius: 8px;
-                line-height: 1.4;
-                font-size: 14px;
+            button { 
+                background: #007cba; 
+                color: white; 
+                padding: 12px 24px; 
+                border: none; 
+                border-radius: 6px; 
+                font-size: 16px; 
+                cursor: pointer; 
+                width: 100%; 
             }
-            
-            .message.user {
-                align-self: flex-end;
-                background: #1a1a1a;
-                color: #fafafa;
+            button:hover { 
+                background: #005a87; 
             }
-            
-            .message.assistant {
-                align-self: flex-start;
-                background: #f5f5f5;
-                border: 1px solid #e0e0e0;
-                color: #1a1a1a;
+            button:disabled { 
+                background: #ccc; 
+                cursor: not-allowed; 
             }
-            
-            .message-meta {
-                font-size: 10px;
-                opacity: 0.7;
-                margin-top: 5px;
+            .response { 
+                margin-top: 20px; 
+                padding: 20px; 
+                background: #f8f9fa; 
+                border-radius: 6px; 
+                border-left: 4px solid #007cba; 
             }
-            
-            .typing-indicator {
-                align-self: flex-start;
-                background: #f5f5f5;
-                border: 1px solid #e0e0e0;
-                padding: 12px 16px;
-                border-radius: 8px;
-                display: none;
+            .sources { 
+                margin-top: 15px; 
+                font-size: 14px; 
+                color: #666; 
             }
-            
-            .typing-dots {
-                display: inline-flex;
-                gap: 4px;
+            .source { 
+                margin: 5px 0; 
+                padding: 5px; 
+                background: #e9ecef; 
+                border-radius: 4px; 
             }
-            
-            .typing-dot {
-                width: 6px;
-                height: 6px;
-                background: #666;
-                border-radius: 50%;
-                animation: typing 1.4s ease-in-out infinite both;
+            .loading { 
+                display: none; 
+                text-align: center; 
+                margin-top: 10px; 
             }
-            
-            .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-            .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-            
-            @keyframes typing {
-                0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
-                40% { transform: scale(1); opacity: 1; }
-            }
-            
-            .chat-input-container {
-                border-top: 1px solid #e0e0e0;
-                padding: 20px;
-                background: #fafafa;
-            }
-            
-            .chat-input-form {
-                display: flex;
-                gap: 10px;
-            }
-            
-            .chat-input {
-                flex: 1;
-                padding: 12px 16px;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
-                font-family: 'Space Mono', monospace;
-                font-size: 14px;
-                background: white;
-            }
-            
-            .chat-input:focus {
-                outline: none;
-                border-color: #1a1a1a;
-            }
-            
-            .chat-send {
-                padding: 12px 20px;
-                background: #1a1a1a;
-                color: #fafafa;
-                border: none;
-                border-radius: 4px;
-                font-family: 'Space Mono', monospace;
-                font-size: 14px;
-                font-weight: 700;
-                cursor: pointer;
-                transition: background 0.2s;
-            }
-            
-            .chat-send:hover {
-                background: #333;
-            }
-            
-            .chat-send:disabled {
-                background: #ccc;
-                cursor: not-allowed;
-            }
-            
-            .error-message {
-                background: #ffebee;
-                border: 1px solid #f8bbd9;
-                color: #c62828;
-                padding: 12px 16px;
-                border-radius: 8px;
-                font-size: 14px;
-            }
-            
-            @media (max-width: 768px) {
-                .chat-container {
-                    height: 100vh;
-                    max-width: 100%;
-                }
-                
-                .chat-messages {
-                    min-height: 300px;
-                }
+            .error { 
+                color: #dc3545; 
+                background: #f8d7da; 
+                border-color: #dc3545; 
             }
         </style>
     </head>
     <body>
-        <div class="chat-container">
-            <div class="chat-header">
-                <div class="chat-title">Sales Knowledge Assistant</div>
-                <div class="chat-subtitle">Ask about objections, competitive positioning, case studies, and more</div>
+        <div class="container">
+            <h1>🎯 Sales RAG Assistant</h1>
+            
+            <div class="input-group">
+                <label for="question">Ask your sales question:</label>
+                <textarea id="question" placeholder="e.g., How do I handle price objections? What are our competitive advantages vs CompetitorX?"></textarea>
             </div>
             
-            <div class="chat-messages" id="chatMessages">
-                <div class="message assistant">
-                    <div>Hello! I'm your Sales Knowledge Assistant. I can help you with:</div>
-                    <div style="margin-top: 10px; font-size: 12px;">
-                      • Objection handling strategies<br>
-                      • Competitive positioning<br>
-                      • Case study examples<br>
-                      • Product information<br>
-                      • Sales playbooks
-                    </div>
-                    <div style="margin-top: 10px; font-size: 12px; opacity: 0.8;">
-                      Try asking: "How do I handle pricing objections?"
-                    </div>
-                </div>
+            <button onclick="askQuestion()" id="askBtn">Ask Question</button>
+            
+            <div class="loading" id="loading">
+                <p>🤔 Thinking...</p>
             </div>
             
-            <div class="typing-indicator" id="typingIndicator">
-                <div class="typing-dots">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                </div>
-            </div>
-            
-            <div class="chat-input-container">
-                <form class="chat-input-form" id="chatForm">
-                    <input 
-                        type="text" 
-                        class="chat-input" 
-                        id="chatInput" 
-                        placeholder="Ask a question..."
-                        autocomplete="off"
-                        maxlength="500"
-                    />
-                    <button type="submit" class="chat-send" id="sendButton">Send</button>
-                </form>
-            </div>
+            <div id="response"></div>
         </div>
 
         <script>
-            const chatMessages = document.getElementById('chatMessages');
-            const chatForm = document.getElementById('chatForm');
-            const chatInput = document.getElementById('chatInput');
-            const sendButton = document.getElementById('sendButton');
-            const typingIndicator = document.getElementById('typingIndicator');
-
-            function addMessage(role, content, metadata = {}) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${role}`;
+            async function askQuestion() {
+                const question = document.getElementById('question').value.trim();
+                const askBtn = document.getElementById('askBtn');
+                const loading = document.getElementById('loading');
+                const responseDiv = document.getElementById('response');
                 
-                const contentDiv = document.createElement('div');
-                contentDiv.textContent = content;
-                messageDiv.appendChild(contentDiv);
-                
-                if (metadata.response_time_ms) {
-                    const metaDiv = document.createElement('div');
-                    metaDiv.className = 'message-meta';
-                    metaDiv.textContent = `${metadata.response_time_ms}ms • ${metadata.question_type || 'general'}`;
-                    messageDiv.appendChild(metaDiv);
+                if (!question) {
+                    alert('Please enter a question');
+                    return;
                 }
                 
-                chatMessages.appendChild(messageDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-
-            function showTyping() {
-                typingIndicator.style.display = 'block';
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-
-            function hideTyping() {
-                typingIndicator.style.display = 'none';
-            }
-
-            function showError(message) {
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'error-message';
-                errorDiv.textContent = message;
-                chatMessages.appendChild(errorDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-
-            async function sendMessage(question) {
-                if (!question.trim()) return;
-                
-                // Add user message
-                addMessage('user', question);
-                
-                // Show typing indicator
-                showTyping();
-                
-                // Disable input
-                sendButton.disabled = true;
-                chatInput.disabled = true;
+                askBtn.disabled = true;
+                askBtn.textContent = 'Thinking...';
+                loading.style.display = 'block';
+                responseDiv.innerHTML = '';
                 
                 try {
                     const response = await fetch('/ask', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ question: question })
                     });
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
                     const data = await response.json();
                     
-                    hideTyping();
-                    
                     if (data.error) {
-                        showError(data.error);
+                        responseDiv.innerHTML = `<div class="response error"><strong>Error:</strong> ${data.error}</div>`;
                     } else {
-                        addMessage('assistant', data.answer, {
-                            response_time_ms: Math.round(data.response_time_ms),
-                            question_type: data.question_type
-                        });
+                        let sourcesHtml = '';
+                        if (data.sources && data.sources.length > 0) {
+                            sourcesHtml = '<div class="sources"><strong>Sources:</strong>';
+                            data.sources.forEach(source => {
+                                sourcesHtml += `<div class="source">${source.title} (${source.type}) - Relevance: ${source.relevance}</div>`;
+                            });
+                            sourcesHtml += '</div>';
+                        }
+                        
+                        responseDiv.innerHTML = `
+                            <div class="response">
+                                <strong>Answer:</strong><br>
+                                ${data.answer.replace(/\\n/g, '<br>')}
+                                ${sourcesHtml}
+                            </div>
+                        `;
                     }
-                    
                 } catch (error) {
-                    hideTyping();
-                    showError('Sorry, there was an error processing your request. Please try again.');
-                    console.error('Error:', error);
-                } finally {
-                    // Re-enable input
-                    sendButton.disabled = false;
-                    chatInput.disabled = false;
-                    chatInput.focus();
+                    responseDiv.innerHTML = `<div class="response error"><strong>Error:</strong> ${error.message}</div>`;
                 }
+                
+                askBtn.disabled = false;
+                askBtn.textContent = 'Ask Question';
+                loading.style.display = 'none';
             }
-
-            chatForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const question = chatInput.value.trim();
-                if (question) {
-                    chatInput.value = '';
-                    await sendMessage(question);
+            
+            // Allow Enter key to submit
+            document.getElementById('question').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    askQuestion();
                 }
             });
-
-            // Focus input on load
-            chatInput.focus();
         </script>
     </body>
     </html>
-    """
+    '''
+    return render_template_string(html_template)
 
+# API endpoint for questions
 @app.route('/ask', methods=['POST'])
 def ask_question():
+    """Handle question API requests"""
+    global assistant
+    
     if not assistant:
-        return jsonify({'error': 'Assistant not initialized'}), 500
+        if not initialize_assistant():
+            return jsonify({'error': 'Assistant not initialized. Check environment variables.'}), 500
     
     try:
         data = request.get_json()
@@ -387,20 +259,40 @@ def ask_question():
         
         if not question:
             return jsonify({'error': 'Question is required'}), 400
-            
-        if len(question) > 500:
-            return jsonify({'error': 'Question too long. Please keep under 500 characters.'}), 400
         
         result = assistant.ask(question)
         return jsonify(result)
-        
+    
+    except Exception as e:
+        logger.error(f"Error processing question: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Stats endpoint
+@app.route('/stats')
+def get_stats():
+    """Get system statistics"""
+    global assistant
+    
+    if not assistant:
+        return jsonify({'error': 'Assistant not initialized'}), 500
+    
+    try:
+        stats = assistant.get_stats()
+        return jsonify(stats)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/health')
-def health_check():
-    return jsonify({'status': 'healthy', 'documents_loaded': assistant is not None})
+# Initialize assistant on startup
+@app.before_first_request
+def startup():
+    """Initialize assistant when app starts"""
+    logger.info("Starting Sales RAG Assistant...")
+    success = initialize_assistant()
+    if success:
+        logger.info("Assistant initialized successfully")
+    else:
+        logger.warning("Assistant initialization failed - will retry on first request")
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
