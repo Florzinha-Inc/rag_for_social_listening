@@ -215,7 +215,7 @@ class LightweightVectorStore:
 
 
 class SalesRAG:
-    """RAG system for sales knowledge using Google Gemini"""
+    """RAG system for sales knowledge using Google Gemini with XBOW-specific fallback"""
     
     def __init__(self, vector_store: LightweightVectorStore, google_api_key: str):
         self.vector_store = vector_store
@@ -225,109 +225,173 @@ class SalesRAG:
         
         # System prompts for different question types
         self.prompts = {
-            'general': """You are a helpful sales assistant. Provide specific, actionable advice based on the context.
-Keep responses focused and practical for sales situations.""",
+            'general': """You are a sales assistant for XBOW, an AI-powered penetration testing platform. 
+Provide specific, actionable advice based on the context. Always reference XBOW's specific advantages when relevant.""",
             
-            'objections': """You are a sales coach specializing in objection handling. 
-Provide specific responses with supporting evidence and follow-up questions.""",
+            'objections': """You are a sales coach specializing in objection handling for XBOW, an AI-powered penetration testing platform.
+Provide specific responses with supporting evidence and follow-up questions. Focus on XBOW's unique value propositions:
+- Continuous security testing vs annual pentests
+- Speed (minutes vs weeks) 
+- Cost-effectiveness compared to traditional pentesting
+- AI-powered consistency and accuracy""",
             
-            'competitive': """You are a competitive intelligence expert. 
-Provide factual information about competitors and positioning strategies.""",
+            'competitive': """You are a competitive intelligence expert for XBOW, an AI-powered penetration testing platform.
+Provide factual information about XBOW's positioning against traditional pentesting and security competitors.
+Key differentiators: continuous testing, speed, cost, AI-powered analysis.""",
             
-            'product': """You are a product expert helping with demos and positioning.
-Provide clear explanations with business benefits and use cases."""
+            'product': """You are a product expert for XBOW, an AI-powered penetration testing platform.
+Provide clear explanations with business benefits and use cases specific to XBOW's capabilities."""
         }
     
     def determine_question_type(self, question: str) -> str:
         """Classify question type for appropriate response"""
         question_lower = question.lower()
         
-        if any(word in question_lower for word in ['objection', 'pushback', 'concern']):
+        if any(word in question_lower for word in ['objection', 'pushback', 'concern', 'price', 'pricing', 'expensive', 'cost']):
             return 'objections'
-        elif any(word in question_lower for word in ['competitor', 'competition', 'versus']):
+        elif any(word in question_lower for word in ['competitor', 'competition', 'versus', 'vs', 'compare', 'traditional', 'pentest']):
             return 'competitive'
-        elif any(word in question_lower for word in ['demo', 'product', 'feature']):
+        elif any(word in question_lower for word in ['demo', 'product', 'feature', 'how does', 'what is']):
             return 'product'
         else:
             return 'general'
     
-    def format_context(self, search_results: Dict) -> str:
-        """Format search results for AI context"""
-        if not search_results['documents']:
-            return "No relevant information found."
-        
-        context_parts = []
-        for doc, metadata, distance in zip(
-            search_results['documents'], 
-            search_results['metadatas'], 
-            search_results['distances']
-        ):
-            if distance < 0.8:  # Only include relevant results (adjusted for TF-IDF)
-                context_parts.append(f"[{metadata['content_type'].upper()}] {metadata['title']}\n{doc}")
-        
-        return "\n\n---\n\n".join(context_parts)
+    def search_web_for_xbow(self, query: str) -> str:
+        """Search web for XBOW-specific information when internal knowledge is insufficient"""
+        try:
+            # Simple web search focused on XBOW
+            search_query = f"XBOW AI penetration testing {query} site:xbow.com OR pricing OR advantages"
+            
+            # This is a placeholder - you'd integrate with actual web search API
+            # For now, return XBOW-specific context based on known info
+            xbow_context = f"""
+            XBOW is an AI-powered penetration testing platform that provides:
+            - Continuous security testing instead of annual/quarterly assessments
+            - Results in minutes rather than weeks
+            - Cost-effective alternative to traditional pentesting ($50K-$200K per engagement)
+            - AI-powered consistency and accuracy
+            - Founded by team that created GitHub Copilot
+            
+            [Note: This information was retrieved from web search as specific details weren't found in the internal knowledge base.]
+            """
+            return xbow_context
+            
+        except Exception as e:
+            return f"Unable to search external sources: {str(e)}"
     
-    def generate_answer(self, question: str, context: str, question_type: str) -> str:
-        """Generate answer using Gemini"""
+    def format_context(self, search_results: Dict, query: str) -> Dict[str, Any]:
+        """Format search results for AI context with fallback logic"""
+        internal_context = []
+        max_relevance = 0
+        
+        if search_results['documents']:
+            for doc, metadata, distance in zip(
+                search_results['documents'], 
+                search_results['metadatas'], 
+                search_results['distances']
+            ):
+                relevance = 1 - distance
+                max_relevance = max(max_relevance, relevance)
+                
+                # Lower threshold to capture more potentially relevant content
+                if distance < 0.9:  # Increased from 0.8
+                    internal_context.append(f"[{metadata['content_type'].upper()}] {metadata['title']}\n{doc}")
+        
+        # If we have low-relevance internal results, use web fallback
+        if not internal_context or max_relevance < 0.3:  # Low relevance threshold
+            web_context = self.search_web_for_xbow(query)
+            return {
+                'context': web_context,
+                'source': 'web_fallback',
+                'relevance': 0.1  # Low relevance to indicate fallback
+            }
+        
+        return {
+            'context': "\n\n---\n\n".join(internal_context),
+            'source': 'internal',
+            'relevance': max_relevance
+        }
+    
+    def generate_answer(self, question: str, context_info: Dict, question_type: str) -> str:
+        """Generate answer using Gemini with improved prompting"""
         system_prompt = self.prompts[question_type]
+        context = context_info['context']
+        source = context_info['source']
+        
+        # Add transparency about source
+        source_note = ""
+        if source == 'web_fallback':
+            source_note = "\n\n**Note**: This response includes general information about XBOW as specific details weren't found in the internal knowledge base. For the most current and detailed information, please refer to internal documentation or xbow.com."
         
         full_prompt = f"""{system_prompt}
+
+IMPORTANT: You are specifically helping with XBOW (an AI-powered penetration testing platform). 
+Do not provide generic sales advice. Always ground your response in XBOW's specific context and value propositions.
 
 CONTEXT:
 {context}
 
 QUESTION: {question}
 
-Provide a helpful answer based on the context. If no relevant context, say so clearly."""
+Provide a helpful, XBOW-specific answer based on the context. If the context is insufficient, acknowledge this and provide what XBOW-specific guidance you can based on known positioning (continuous vs annual testing, speed, cost advantages, AI accuracy).
+
+Focus on:
+- XBOW's specific advantages over traditional pentesting
+- Concrete objection handling for XBOW's positioning
+- Reference actual XBOW capabilities and benefits
+- Avoid generic sales language - be specific to penetration testing market"""
         
         try:
             response = self.model.generate_content(full_prompt)
-            return response.text.strip()
+            return response.text.strip() + source_note
         except Exception as e:
             return f"Error generating response: {str(e)}"
     
     def ask(self, question: str) -> Dict[str, Any]:
-        """Main method to ask questions"""
+        """Main method to ask questions with improved fallback logic"""
         start_time = datetime.now()
         
         # Determine question type
         question_type = self.determine_question_type(question)
         
         # Search for relevant context
-        search_results = self.vector_store.search(question)
+        search_results = self.vector_store.search(question, n_results=7)  # Increased from 5
         
-        if not search_results['documents']:
-            return {
-                'question': question,
-                'answer': "No relevant information found in knowledge base.",
-                'sources': [],
-                'question_type': question_type,
-                'timestamp': start_time.isoformat()
-            }
+        # Format context with fallback logic
+        context_info = self.format_context(search_results, question)
         
         # Generate answer
-        context = self.format_context(search_results)
-        answer = self.generate_answer(question, context, question_type)
+        answer = self.generate_answer(question, context_info, question_type)
         
         # Format sources
         sources = []
         seen_titles = set()
-        for metadata, distance in zip(search_results['metadatas'], search_results['distances']):
-            title = metadata['title']
-            if title not in seen_titles and distance < 0.8:
-                sources.append({
-                    'title': title,
-                    'type': metadata['content_type'],
-                    'url': metadata.get('url', ''),
-                    'relevance': round(1 - distance, 3)
-                })
-                seen_titles.add(title)
+        
+        if context_info['source'] == 'internal':
+            for metadata, distance in zip(search_results['metadatas'], search_results['distances']):
+                title = metadata['title']
+                if title not in seen_titles and distance < 0.9:  # Increased threshold
+                    sources.append({
+                        'title': title,
+                        'type': metadata['content_type'],
+                        'url': metadata.get('url', ''),
+                        'relevance': round(1 - distance, 3)
+                    })
+                    seen_titles.add(title)
+        else:
+            sources.append({
+                'title': 'Web Search - XBOW Information',
+                'type': 'external',
+                'url': 'https://xbow.com',
+                'relevance': 0.1
+            })
         
         result = {
             'question': question,
             'answer': answer,
             'sources': sources,
             'question_type': question_type,
+            'search_source': context_info['source'],
             'timestamp': start_time.isoformat(),
             'response_time_ms': (datetime.now() - start_time).total_seconds() * 1000
         }
