@@ -521,6 +521,8 @@ class GTMIntelligenceAssistant:
     
     def load_real_reddit_data(self) -> List[Dict]:
         """Load the actual Reddit data from the provided JSON files"""
+        logger.info("Starting to load real Reddit data...")
+        
         real_threads = []
         
         # Data from r/cybersecurity - "Is Penetration Testing still worth it after seeing XBOW at work?"
@@ -659,6 +661,101 @@ class GTMIntelligenceAssistant:
                 'subreddit': 'Hacking_Tutorials',
                 'permalink': '/r/Hacking_Tutorials/comments/1ln80yl/is_xbow_ai_snake_oil_or_the_real_deal/',
                 'url': 'https://reddit.com/r/Hacking_Tutorials/comments/1ln80yl/is_xbow_ai_snake_oil_or_the_real_deal/'
+            },
+            'comments': [
+                {
+                    'id': 'n0dc3vu',
+                    'author': 'Sqooky',
+                    'body': 'AI is just another tool to help us do work. We have tens of products in our suite and it still wont catch vulnerabilities that humans can find. Lots of companies don\'t like tossing their data into a black-box. Especially proprietary and potentially vulnerability related data. Mainly because of loss of control.',
+                    'score': 3,
+                    'created_utc': 1751180043,
+                    'parent_id': None,
+                    'replies_count': 1,
+                    'depth': 0
+                },
+                {
+                    'id': 'napheni',
+                    'author': 'Sqooky',
+                    'body': 'The point is - You can be a horrible "hacker" and land at the top of H1s leaderboard. Points mean nothing when programs like the DoDs exist that\'ll give you anything for anything. Let\'s also not pretend xbow is 100% only AI. We don\'t have full AI. We have generative & language models. It\'s 100% going through human review and analysis before its submitted to any company.',
+                    'score': 1,
+                    'created_utc': 1756181428,
+                    'parent_id': None,
+                    'replies_count': 0,
+                    'depth': 0
+                }
+            ],
+            'thread_url': 'https://reddit.com/r/Hacking_Tutorials/comments/1ln80yl/.json',
+            'extracted_at': datetime.now().isoformat()
+        }
+        
+        # Data from r/bugbounty - "How AI is affecting pentesting and bug bounties"
+        bugbounty_thread = {
+            'post': {
+                'id': '1l97esk',
+                'title': 'How AI is affecting pentesting and bug bounties',
+                'selftext': 'Recently, I came across with a project named "Xbow" and it\'s actually the current top US-based hacker on Hackerone\'s leaderboard. It\'s a fully automated AI agent trained on real vulnerability data and will be available soon. Do you think it\'s still worth to learn pentesting and get into bug bounties?',
+                'author': 'S4vz4d',
+                'score': 14,
+                'upvote_ratio': 0.7,
+                'num_comments': 12,
+                'created_utc': 1749684165,
+                'subreddit': 'bugbounty',
+                'permalink': '/r/bugbounty/comments/1l97esk/how_ai_is_affecting_pentesting_and_bug_bounties/',
+                'url': 'https://reddit.com/r/bugbounty/comments/1l97esk/how_ai_is_affecting_pentesting_and_bug_bounties/'
+            },
+            'comments': [
+                {
+                    'id': 'mxcbgt2',
+                    'author': 'chopper332nd',
+                    'body': 'As a customer of hacker one I\'m more worried about the crap we\'re gunna have to sort through now. We have scanners and other companies that offer AI agents for pentesting which find the low hanging fruit. We have a Bug Bounty program to find more nuanced vulnerabilities in our products that other security testing can\'t find.',
+                    'score': 21,
+                    'created_utc': 1749712425,
+                    'parent_id': None,
+                    'replies_count': 0,
+                    'depth': 0
+                },
+                {
+                    'id': 'mxbvg2p',
+                    'author': 'k4lashhnikov',
+                    'body': 'The human factor is always required for logic errors, vertical or horizontal scaling, AI and automated tools cannot understand the business context. If AIs have vulnerabilities and are not imperfect, what makes you think they will replace the human hacker?',
+                    'score': 14,
+                    'created_utc': 1749703837,
+                    'parent_id': None,
+                    'replies_count': 1,
+                    'depth': 0
+                },
+                {
+                    'id': 'mxeewa2',
+                    'author': 'k4lashhnikov',
+                    'body': 'Sure, they can surpass human capabilities but there is little point in analyzing hundreds of thousands of endpoints to find uninteresting things or false positives, If an AI analyzes misconfigurations of JS, code, or exposed credentials, it cannot (for now) have the ability to manually modify things that apparently work well. For example, a step-by-step business flow, if the AI superficially sees that the flow is correct, it will leave it as is, but a human has the idea of seeing what happens if a specific step is skipped.',
+                    'score': 4,
+                    'created_utc': 1749743477,
+                    'parent_id': None,
+                    'replies_count': 0,
+                    'depth': 0
+                },
+                {
+                    'id': 'nchqml7',
+                    'author': 'Reasonable_Cut8116',
+                    'body': 'It does surprisingly well. I have heard of Xbow. We use a similar tool from StealthNet AI(stealthnet.ai). They have a fleet of AI agents to automate penetration testing. Compared to normal vulnerability scanners they perform 100x better. You can think of them as a really smart vulnerbility scanner or a junior pentester. They can perform really well but it wont be able to find everything. More complex attacks will still require humans.',
+                    'score': 2,
+                    'created_utc': 1757041432,
+                    'parent_id': None,
+                    'replies_count': 0,
+                    'depth': 0
+                }
+            ],
+            'thread_url': 'https://reddit.com/r/bugbounty/comments/1l97esk/.json',
+            'extracted_at': datetime.now().isoformat()
+        }
+        
+        real_threads.extend([cybersec_thread, pentesting_thread, hacking_thread, bugbounty_thread])
+        
+        logger.info(f"Loaded {len(real_threads)} threads with real Reddit data")
+        for thread in real_threads:
+            logger.info(f"Thread: {thread['post']['title']} from r/{thread['post']['subreddit']} with {len(thread['comments'])} comments")
+        
+        return real_threads/'
             },
             'comments': [
                 {
