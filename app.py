@@ -15,13 +15,10 @@ CORS(app)
 # Global variable to store the assistant
 assistant = None
 
-# Reddit URLs to analyze
-REDDIT_URLS = [
-    "https://www.reddit.com/r/cybersecurity/comments/1ly9nxf/is_penetration_testing_still_worth_it_after/.json",
-    "https://www.reddit.com/r/Pentesting/comments/1lmzvx8/will_xbow_or_ais_be_able_to_replace_pentesters/.json",
-    "https://www.reddit.com/r/Hacking_Tutorials/comments/1ln80yl/is_xbow_ai_snake_oil_or_the_real_deal/.json",
-    "https://www.reddit.com/r/bugbounty/comments/1l97esk/how_ai_is_affecting_pentesting_and_bug_bounties/.json"
-]
+# Note: We're using hardcoded Reddit data from the provided JSON files
+# instead of fetching from URLs. The data is loaded directly in the
+# GTMIntelligenceAssistant.load_real_reddit_data() method
+REDDIT_DATA_SOURCE = "hardcoded_from_json_files"
 
 def initialize_assistant():
     """Initialize the GTM intelligence assistant"""
@@ -37,16 +34,31 @@ def initialize_assistant():
         logger.info("Creating GTMIntelligenceAssistant instance...")
         assistant = GTMIntelligenceAssistant(google_api_key)
         
-        logger.info("Loading Reddit threads...")
-        # Load Reddit threads - the URLs parameter is ignored now since we use real data
-        threads_loaded = assistant.load_reddit_threads(REDDIT_URLS)
-        logger.info(f"Successfully loaded {threads_loaded} Reddit threads for analysis")
+        logger.info("Loading real Reddit data directly...")
+        # Load the real Reddit data directly, bypass URL fetching completely
+        threads = assistant.load_real_reddit_data()
         
-        # Debug: Check what was actually loaded
-        stats = assistant.get_stats()
-        logger.info(f"Final stats: {stats}")
-        
-        return True
+        if threads:
+            logger.info(f"Got {len(threads)} threads from real Reddit data")
+            assistant.threads_data = threads
+            assistant.vector_store.add_threads(threads)
+            
+            total_posts = len(threads)
+            total_comments = sum(len(t['comments']) for t in threads)
+            
+            logger.info(f"Successfully loaded {total_posts} Reddit posts with {total_comments} comments")
+            
+            # Debug: Check vector store
+            if hasattr(assistant.vector_store, 'documents'):
+                logger.info(f"Vector store now has {len(assistant.vector_store.documents)} documents")
+            else:
+                logger.error("Vector store has no documents attribute")
+            
+            return True
+        else:
+            logger.error("load_real_reddit_data() returned empty list")
+            return False
+            
     except Exception as e:
         logger.error(f"Error initializing GTM assistant: {e}")
         import traceback
@@ -898,7 +910,7 @@ def debug_data():
             'sample_metadata': sample_metadata,
             'search_test': search_test,
             'threads_loaded': len(assistant.threads_data) if assistant.threads_data else 0,
-            'reddit_urls_configured': len(REDDIT_URLS),
+            'data_source': REDDIT_DATA_SOURCE,
         }
         
         return jsonify(debug_info)
