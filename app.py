@@ -34,15 +34,23 @@ def initialize_assistant():
         return False
     
     try:
+        logger.info("Creating GTMIntelligenceAssistant instance...")
         assistant = GTMIntelligenceAssistant(google_api_key)
         
-        # Load Reddit threads
+        logger.info("Loading Reddit threads...")
+        # Load Reddit threads - the URLs parameter is ignored now since we use real data
         threads_loaded = assistant.load_reddit_threads(REDDIT_URLS)
-        logger.info(f"Loaded {threads_loaded} Reddit threads for analysis")
+        logger.info(f"Successfully loaded {threads_loaded} Reddit threads for analysis")
+        
+        # Debug: Check what was actually loaded
+        stats = assistant.get_stats()
+        logger.info(f"Final stats: {stats}")
         
         return True
     except Exception as e:
         logger.error(f"Error initializing GTM assistant: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False
 
 # Health check endpoint
@@ -843,6 +851,60 @@ def get_stats():
         return jsonify(stats)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Test endpoint to debug data loading
+@app.route('/debug')
+def debug_data():
+    """Debug endpoint to check data loading"""
+    global assistant
+    
+    if not assistant:
+        return jsonify({'error': 'Assistant not initialized'})
+    
+    try:
+        # Get basic stats
+        stats = assistant.get_stats()
+        
+        # Get some sample documents from vector store
+        sample_docs = []
+        sample_metadata = []
+        
+        if hasattr(assistant.vector_store, 'documents') and assistant.vector_store.documents:
+            sample_docs = [doc[:200] + '...' for doc in assistant.vector_store.documents[:5]]
+        
+        if hasattr(assistant.vector_store, 'metadata') and assistant.vector_store.metadata:
+            sample_metadata = assistant.vector_store.metadata[:5]
+        
+        # Test a simple search
+        search_test = None
+        if assistant.vector_store.documents:
+            try:
+                test_results = assistant.vector_store.search("XBOW AI pentesting", n_results=3)
+                search_test = {
+                    'query': 'XBOW AI pentesting',
+                    'results_found': len(test_results['documents']),
+                    'sample_results': [doc[:100] + '...' for doc in test_results['documents'][:2]]
+                }
+            except Exception as e:
+                search_test = {'error': str(e)}
+        
+        debug_info = {
+            'assistant_initialized': assistant is not None,
+            'stats': stats,
+            'vector_store_has_documents': len(assistant.vector_store.documents) if hasattr(assistant.vector_store, 'documents') else 0,
+            'vector_store_has_metadata': len(assistant.vector_store.metadata) if hasattr(assistant.vector_store, 'metadata') else 0,
+            'vector_store_initialized': assistant.vector_store.document_vectors is not None if hasattr(assistant.vector_store, 'document_vectors') else False,
+            'sample_documents': sample_docs,
+            'sample_metadata': sample_metadata,
+            'search_test': search_test,
+            'threads_loaded': len(assistant.threads_data) if assistant.threads_data else 0,
+            'reddit_urls_configured': len(REDDIT_URLS),
+        }
+        
+        return jsonify(debug_info)
+    except Exception as e:
+        import traceback
+        return jsonify({'error': f'Debug error: {str(e)}', 'traceback': traceback.format_exc()})
 
 # Thread summaries endpoint
 @app.route('/threads')
