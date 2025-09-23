@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 import logging
-from sales_assistant import SalesAssistant
+from reddit_gtm_assistant import GTMIntelligenceAssistant
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -15,60 +15,53 @@ CORS(app)
 # Global variable to store the assistant
 assistant = None
 
+# Reddit URLs to analyze
+REDDIT_URLS = [
+    "https://www.reddit.com/r/cybersecurity/comments/1ly9nxf/is_penetration_testing_still_worth_it_after/.json",
+    "https://www.reddit.com/r/Pentesting/comments/1lmzvx8/will_xbow_or_ais_be_able_to_replace_pentesters/.json",
+    "https://www.reddit.com/r/Hacking_Tutorials/comments/1ln80yl/is_xbow_ai_snake_oil_or_the_real_deal/.json",
+    "https://www.reddit.com/r/bugbounty/comments/1l97esk/how_ai_is_affecting_pentesting_and_bug_bounties/.json"
+]
+
 def initialize_assistant():
-    """Initialize the sales assistant with environment variables"""
+    """Initialize the GTM intelligence assistant"""
     global assistant
     
-    notion_api_key = os.getenv('NOTION_API_KEY')
     google_api_key = os.getenv('GOOGLE_API_KEY')
     
-    if not notion_api_key or not google_api_key:
-        logger.error("Missing required environment variables")
+    if not google_api_key:
+        logger.error("Missing GOOGLE_API_KEY environment variable")
         return False
     
     try:
-        assistant = SalesAssistant(notion_api_key, google_api_key)
+        assistant = GTMIntelligenceAssistant(google_api_key)
         
-        # Load databases
-        database_configs = {
-            'playbooks': os.getenv('PLAYBOOKS_DB_ID', ''),
-            'competitive': os.getenv('COMPETITIVE_DB_ID', ''),
-            'case_studies': os.getenv('CASE_STUDIES_DB_ID', ''),
-            'products': os.getenv('PRODUCTS_DB_ID', ''),
-            'objections': os.getenv('OBJECTIONS_DB_ID', '')
-        }
-        
-        # Filter out empty database IDs
-        database_configs = {k: v for k, v in database_configs.items() if v}
-        
-        if database_configs:
-            docs_loaded = assistant.load_from_notion(database_configs)
-            logger.info(f"Loaded {docs_loaded} documents from Notion")
-        else:
-            logger.warning("No database IDs provided")
+        # Load Reddit threads
+        threads_loaded = assistant.load_reddit_threads(REDDIT_URLS)
+        logger.info(f"Loaded {threads_loaded} Reddit threads for analysis")
         
         return True
     except Exception as e:
-        logger.error(f"Error initializing assistant: {e}")
+        logger.error(f"Error initializing GTM assistant: {e}")
         return False
 
 # Health check endpoint
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Railway"""
-    return jsonify({'status': 'healthy', 'service': 'sales-rag-assistant'})
+    """Health check endpoint"""
+    return jsonify({'status': 'healthy', 'service': 'gtm-intelligence-assistant'})
 
 # Main interface
 @app.route('/')
 def index():
-    """Main interface for the sales assistant"""
+    """Main interface for the GTM intelligence assistant"""
     html_template = '''
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sales Knowledge Assistant</title>
+        <title>GTM Intelligence Assistant</title>
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
             
@@ -87,27 +80,41 @@ def index():
                 flex-direction: column;
             }
 
-            /* Slack-style header */
+            /* Header styling - GTM Intelligence theme */
             .header {
-                background: #1a1a1a;
+                background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
                 color: #fafafa;
-                padding: 12px 20px;
-                border-bottom: 1px solid #333;
+                padding: 16px 20px;
+                border-bottom: 3px solid #4CAF50;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 flex-shrink: 0;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             }
 
             .header-left {
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: 15px;
+            }
+
+            .header-icon {
+                width: 32px;
+                height: 32px;
+                background: #4CAF50;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 16px;
             }
 
             .channel-name {
                 font-weight: 700;
-                font-size: 16px;
+                font-size: 18px;
+                color: #4CAF50;
             }
 
             .channel-desc {
@@ -117,8 +124,28 @@ def index():
             }
 
             .header-right {
-                font-size: 12px;
-                color: #ccc;
+                font-size: 11px;
+                color: #aaa;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
+            }
+
+            .status-indicator {
+                width: 8px;
+                height: 8px;
+                background: #4CAF50;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 6px;
+                animation: pulse 2s infinite;
+            }
+
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.5; }
+                100% { opacity: 1; }
             }
 
             /* Main container */
@@ -146,21 +173,29 @@ def index():
             .message {
                 display: flex;
                 gap: 12px;
-                max-width: 800px;
+                max-width: 900px;
             }
 
             .message-avatar {
                 width: 36px;
                 height: 36px;
-                background: #1a1a1a;
-                color: #fafafa;
                 border-radius: 6px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-weight: 700;
-                font-size: 14px;
+                font-size: 12px;
                 flex-shrink: 0;
+            }
+
+            .user-message .message-avatar {
+                background: #e3f2fd;
+                color: #1976d2;
+            }
+
+            .assistant-message .message-avatar {
+                background: #4CAF50;
+                color: #fff;
             }
 
             .message-content {
@@ -171,7 +206,7 @@ def index():
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                margin-bottom: 4px;
+                margin-bottom: 6px;
             }
 
             .message-author {
@@ -181,92 +216,187 @@ def index():
             }
 
             .message-time {
-                font-size: 12px;
+                font-size: 11px;
                 color: #666;
+            }
+
+            .analysis-type {
+                background: #4CAF50;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
 
             .message-text {
                 font-size: 14px;
-                line-height: 1.5;
+                line-height: 1.6;
                 color: #1a1a1a;
                 white-space: pre-wrap;
             }
 
             .user-message .message-text {
-                background: #f5f5f5;
-                padding: 12px;
-                border: 1px solid #e0e0e0;
-                border-radius: 6px;
+                background: #f0f8ff;
+                padding: 12px 16px;
+                border: 1px solid #e3f2fd;
+                border-radius: 8px;
+                border-left: 4px solid #1976d2;
             }
 
             .assistant-message .message-text {
-                background: none;
-                padding: 0;
-                border: none;
+                background: #fff;
+                padding: 16px;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                border-left: 4px solid #4CAF50;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             }
 
-            /* Sources */
+            /* Sources styling */
             .sources {
-                margin-top: 12px;
-                padding-top: 12px;
-                border-top: 1px solid #e0e0e0;
+                margin-top: 16px;
+                padding-top: 16px;
+                border-top: 2px solid #f0f0f0;
             }
 
             .sources-header {
                 font-size: 12px;
                 font-weight: 700;
-                color: #666;
-                margin-bottom: 8px;
+                color: #4CAF50;
+                margin-bottom: 12px;
                 text-transform: uppercase;
                 letter-spacing: 1px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .sources-header::before {
+                content: "📊";
+                font-size: 14px;
             }
 
             .source {
-                margin: 4px 0;
-                padding: 8px 12px;
-                background: #f5f5f5;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
+                margin: 6px 0;
+                padding: 12px 16px;
+                background: #f9f9f9;
+                border: 1px solid #e8e8e8;
+                border-radius: 6px;
                 font-size: 12px;
-                color: #666;
+                color: #555;
+                position: relative;
+            }
+
+            .source:hover {
+                background: #f0f8ff;
+                border-color: #e3f2fd;
+            }
+
+            .source-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 4px;
             }
 
             .source-title {
                 font-weight: 700;
                 color: #1a1a1a;
+                font-size: 13px;
+            }
+
+            .source-meta {
+                display: flex;
+                gap: 12px;
+                font-size: 11px;
+                color: #666;
+            }
+
+            .subreddit-tag {
+                background: #e8f5e8;
+                color: #2e7d32;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 600;
+            }
+
+            .score-badge {
+                background: #fff3e0;
+                color: #f57c00;
+                padding: 2px 6px;
+                border-radius: 8px;
+                font-size: 10px;
+                font-weight: 600;
             }
 
             /* Input area */
             .input-area {
                 padding: 20px;
-                border-top: 1px solid #e0e0e0;
-                background: #fafafa;
+                border-top: 2px solid #f0f0f0;
+                background: linear-gradient(to bottom, #fafafa, #f5f5f5);
                 flex-shrink: 0;
             }
 
             .input-container {
-                max-width: 800px;
+                max-width: 900px;
                 margin: 0 auto;
                 position: relative;
             }
 
+            .input-helper {
+                font-size: 11px;
+                color: #666;
+                margin-bottom: 8px;
+                display: flex;
+                gap: 15px;
+            }
+
+            .helper-examples {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .example-query {
+                background: #e8f5e8;
+                color: #2e7d32;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 10px;
+                cursor: pointer;
+                border: 1px solid transparent;
+                transition: all 0.2s;
+            }
+
+            .example-query:hover {
+                background: #4CAF50;
+                color: white;
+                transform: translateY(-1px);
+            }
+
             textarea { 
                 width: 100%;
-                min-height: 44px;
-                max-height: 120px;
-                padding: 12px 80px 12px 16px;
-                border: 1px solid #e0e0e0;
-                border-radius: 6px;
+                min-height: 48px;
+                max-height: 140px;
+                padding: 14px 90px 14px 18px;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
                 font-family: 'Space Mono', monospace;
                 font-size: 14px;
                 resize: none;
                 background: #ffffff;
                 color: #1a1a1a;
+                transition: border-color 0.2s;
             }
 
             textarea:focus {
                 outline: none;
-                border-color: #1a1a1a;
+                border-color: #4CAF50;
+                box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
             }
 
             textarea::placeholder {
@@ -277,56 +407,54 @@ def index():
                 position: absolute;
                 right: 8px;
                 bottom: 8px;
-                background: #1a1a1a;
-                color: #fafafa;
+                background: #4CAF50;
+                color: #ffffff;
                 border: none;
-                border-radius: 4px;
-                padding: 8px 12px;
+                border-radius: 6px;
+                padding: 10px 16px;
                 font-family: 'Space Mono', monospace;
                 font-size: 12px;
                 font-weight: 700;
                 cursor: pointer;
-                transition: background 0.2s;
+                transition: all 0.2s;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
 
             .send-button:hover:not(:disabled) {
-                background: #333;
+                background: #45a049;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
             }
 
             .send-button:disabled {
                 background: #ccc;
                 cursor: not-allowed;
-            }
-
-            /* Loading indicator */
-            .loading-message {
-                display: none;
-            }
-
-            .loading-message .message-text {
-                color: #666;
-                font-style: italic;
+                transform: none;
+                box-shadow: none;
             }
 
             /* Typing indicator */
             .typing-indicator {
                 display: none;
                 align-items: center;
-                gap: 4px;
+                gap: 8px;
                 color: #666;
                 font-size: 12px;
-                padding: 8px 0;
+                padding: 12px 20px;
+                background: #f9f9f9;
+                border-top: 1px solid #eee;
             }
 
             .typing-dots {
                 display: flex;
-                gap: 2px;
+                gap: 3px;
             }
 
             .typing-dot {
-                width: 4px;
-                height: 4px;
-                background: #666;
+                width: 6px;
+                height: 6px;
+                background: #4CAF50;
                 border-radius: 50%;
                 animation: typing 1.4s infinite ease-in-out;
             }
@@ -344,25 +472,57 @@ def index():
                 text-align: center;
                 color: #666;
                 font-size: 14px;
-                margin: 40px 0;
-                max-width: 600px;
+                margin: 40px 20px;
+                max-width: 700px;
                 margin-left: auto;
                 margin-right: auto;
+                background: #fff;
+                padding: 30px;
+                border-radius: 12px;
+                border: 2px solid #f0f0f0;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             }
 
             .welcome-title {
                 font-weight: 700;
                 color: #1a1a1a;
+                margin-bottom: 12px;
+                font-size: 18px;
+            }
+
+            .welcome-subtitle {
+                color: #4CAF50;
+                font-weight: 600;
+                margin-bottom: 16px;
+                font-size: 14px;
+            }
+
+            .data-sources {
+                margin-top: 20px;
+                padding-top: 20px;
+                border-top: 1px solid #f0f0f0;
+            }
+
+            .data-sources-title {
+                font-size: 12px;
+                font-weight: 700;
+                color: #666;
                 margin-bottom: 8px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .source-list {
+                font-size: 11px;
+                color: #888;
+                line-height: 1.4;
             }
 
             /* Error states */
             .error .message-text {
-                color: #dc3545;
-                background: #f8d7da;
-                border: 1px solid #dc3545;
-                padding: 12px;
-                border-radius: 6px;
+                color: #d32f2f;
+                background: #ffebee;
+                border-left-color: #d32f2f;
             }
 
             /* Responsive */
@@ -382,23 +542,84 @@ def index():
                 .input-area {
                     padding: 15px;
                 }
+
+                .helper-examples {
+                    display: none;
+                }
+
+                .welcome-message {
+                    margin: 20px 10px;
+                    padding: 20px;
+                }
+            }
+
+            /* Analysis formatting */
+            .message-text h1, .message-text h2, .message-text h3 {
+                color: #1a1a1a;
+                margin: 16px 0 8px 0;
+                font-weight: 700;
+            }
+
+            .message-text h2 {
+                font-size: 16px;
+                border-bottom: 2px solid #4CAF50;
+                padding-bottom: 4px;
+            }
+
+            .message-text h3 {
+                font-size: 14px;
+                color: #4CAF50;
+            }
+
+            .message-text ul, .message-text ol {
+                margin: 8px 0 8px 20px;
+            }
+
+            .message-text li {
+                margin: 4px 0;
+                line-height: 1.5;
+            }
+
+            .message-text strong {
+                color: #1a1a1a;
+                font-weight: 700;
+            }
+
+            .message-text em {
+                color: #4CAF50;
+                font-style: italic;
             }
         </style>
     </head>
     <body>
         <div class="header">
             <div class="header-left">
-                <div class="channel-name"># sales-assistant</div>
-                <div class="channel-desc">AI-powered knowledge retrieval for revenue teams</div>
+                <div class="header-icon">GTM</div>
+                <div>
+                    <div class="channel-name">GTM Intelligence Assistant</div>
+                    <div class="channel-desc">Reddit community analysis for growth marketing teams</div>
+                </div>
             </div>
-            <div class="header-right">Production • Live</div>
+            <div class="header-right">
+                <div><span class="status-indicator"></span>Live Analysis</div>
+                <div>Cybersecurity • Pentesting • AI Tools</div>
+            </div>
         </div>
 
         <div class="container">
             <div class="messages-container" id="messagesContainer">
                 <div class="welcome-message">
-                    <div class="welcome-title">Sales Knowledge Assistant</div>
-                    <div>Ask questions about competitive positioning, objection handling, case studies, and sales playbooks.</div>
+                    <div class="welcome-title">GTM Intelligence from Reddit Communities</div>
+                    <div class="welcome-subtitle">Analyze authentic developer conversations for strategic insights</div>
+                    <div>Ask questions about pain points, feature gaps, competitive positioning, and market sentiment from real community discussions.</div>
+                    
+                    <div class="data-sources">
+                        <div class="data-sources-title">Data Sources</div>
+                        <div class="source-list">
+                            r/cybersecurity • r/Pentesting • r/Hacking_Tutorials • r/bugbounty<br>
+                            Analyzing discussions about AI tools, penetration testing, and cybersecurity workflows
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -408,17 +629,26 @@ def index():
                     <div class="typing-dot"></div>
                     <div class="typing-dot"></div>
                 </div>
-                <span>Assistant is typing...</span>
+                <span>Analyzing community discussions...</span>
             </div>
 
             <div class="input-area">
                 <div class="input-container">
+                    <div class="input-helper">
+                        <span style="font-weight: 700; color: #4CAF50;">Try:</span>
+                        <div class="helper-examples">
+                            <div class="example-query" onclick="setQuery(this.textContent)">What pain points do users mention?</div>
+                            <div class="example-query" onclick="setQuery(this.textContent)">How do users feel about AI in pentesting?</div>
+                            <div class="example-query" onclick="setQuery(this.textContent)">What features are users asking for?</div>
+                            <div class="example-query" onclick="setQuery(this.textContent)">Competitive concerns about XBOW</div>
+                        </div>
+                    </div>
                     <textarea 
                         id="question" 
-                        placeholder="Ask about objection handling, competitive advantages, case studies..."
+                        placeholder="Analyze community discussions for GTM insights..."
                         rows="1"
                     ></textarea>
-                    <button class="send-button" onclick="askQuestion()" id="askBtn">Send</button>
+                    <button class="send-button" onclick="askQuestion()" id="askBtn">Analyze</button>
                 </div>
             </div>
         </div>
@@ -430,14 +660,24 @@ def index():
                 return new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             }
 
-            function addMessage(author, text, type = 'user', sources = null) {
+            function setQuery(text) {
+                document.getElementById('question').value = text;
+                document.getElementById('question').focus();
+            }
+
+            function addMessage(author, text, type = 'user', sources = null, analysisType = null) {
                 const messagesContainer = document.getElementById('messagesContainer');
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${type}-message`;
                 messageDiv.id = `message-${messageId++}`;
 
-                const avatar = type === 'user' ? 'YOU' : 'AI';
-                const authorName = type === 'user' ? 'You' : 'Sales Assistant';
+                const avatar = type === 'user' ? 'YOU' : 'GTM';
+                const authorName = type === 'user' ? 'You' : 'GTM Intelligence';
+
+                let analysisTypeBadge = '';
+                if (analysisType) {
+                    analysisTypeBadge = `<span class="analysis-type">${analysisType.replace('_', ' ')}</span>`;
+                }
 
                 messageDiv.innerHTML = `
                     <div class="message-avatar">${avatar}</div>
@@ -445,6 +685,7 @@ def index():
                         <div class="message-header">
                             <span class="message-author">${authorName}</span>
                             <span class="message-time">${getCurrentTime()}</span>
+                            ${analysisTypeBadge}
                         </div>
                         <div class="message-text">${text}</div>
                         ${sources ? createSourcesHtml(sources) : ''}
@@ -459,9 +700,23 @@ def index():
             function createSourcesHtml(sources) {
                 if (!sources || sources.length === 0) return '';
                 
-                let sourcesHtml = '<div class="sources"><div class="sources-header">Sources</div>';
+                let sourcesHtml = '<div class="sources"><div class="sources-header">Discussion Sources</div>';
                 sources.forEach(source => {
-                    sourcesHtml += `<div class="source"><span class="source-title">${source.title}</span> (${source.type}) - ${source.relevance}</div>`;
+                    sourcesHtml += `
+                        <div class="source">
+                            <div class="source-header">
+                                <span class="source-title">${source.title}</span>
+                                <div class="source-meta">
+                                    <span class="subreddit-tag">r/${source.subreddit}</span>
+                                    <span class="score-badge">↑${source.score}</span>
+                                    <span>relevance: ${source.relevance}</span>
+                                </div>
+                            </div>
+                            <div style="font-size: 10px; color: #888; margin-top: 4px;">
+                                ${source.type} • <a href="${source.url}" target="_blank" style="color: #4CAF50;">view discussion</a>
+                            </div>
+                        </div>
+                    `;
                 });
                 sourcesHtml += '</div>';
                 return sourcesHtml;
@@ -483,7 +738,7 @@ def index():
                 const question = questionInput.value.trim();
                 
                 if (!question) {
-                    alert('Please enter a question');
+                    alert('Please enter a question for GTM analysis');
                     return;
                 }
                 
@@ -493,18 +748,18 @@ def index():
                 // Clear input and disable button
                 questionInput.value = '';
                 askBtn.disabled = true;
-                askBtn.textContent = 'Sending...';
+                askBtn.textContent = 'Analyzing...';
                 
                 // Show typing indicator
                 showTypingIndicator();
                 
                 try {
-                    const response = await fetch('/ask', {
+                    const response = await fetch('/analyze', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ question: question })
+                        body: JSON.stringify({ query: question })
                     });
                     
                     const data = await response.json();
@@ -514,7 +769,7 @@ def index():
                     if (data.error) {
                         addMessage('assistant', `Error: ${data.error}`, 'error');
                     } else {
-                        addMessage('assistant', data.answer, 'assistant', data.sources);
+                        addMessage('assistant', data.analysis, 'assistant', data.sources, data.analysis_type);
                     }
                 } catch (error) {
                     hideTypingIndicator();
@@ -522,14 +777,14 @@ def index():
                 }
                 
                 askBtn.disabled = false;
-                askBtn.textContent = 'Send';
+                askBtn.textContent = 'Analyze';
                 questionInput.focus();
             }
             
             // Auto-resize textarea
             document.getElementById('question').addEventListener('input', function() {
                 this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
             });
             
             // Allow Enter to submit (Shift+Enter for new line)
@@ -550,28 +805,28 @@ def index():
     '''
     return render_template_string(html_template)
 
-# API endpoint for questions
-@app.route('/ask', methods=['POST'])
-def ask_question():
-    """Handle question API requests"""
+# API endpoint for GTM intelligence analysis
+@app.route('/analyze', methods=['POST'])
+def analyze_discussions():
+    """Handle GTM analysis requests"""
     global assistant
     
     if not assistant:
         if not initialize_assistant():
-            return jsonify({'error': 'Assistant not initialized. Check environment variables.'}), 500
+            return jsonify({'error': 'GTM Assistant not initialized. Check GOOGLE_API_KEY environment variable.'}), 500
     
     try:
         data = request.get_json()
-        question = data.get('question', '').strip()
+        query = data.get('query', '').strip()
         
-        if not question:
-            return jsonify({'error': 'Question is required'}), 400
+        if not query:
+            return jsonify({'error': 'Analysis query is required'}), 400
         
-        result = assistant.ask(question)
+        result = assistant.analyze(query)
         return jsonify(result)
     
     except Exception as e:
-        logger.error(f"Error processing question: {e}")
+        logger.error(f"Error processing GTM analysis: {e}")
         return jsonify({'error': str(e)}), 500
 
 # Stats endpoint
@@ -589,15 +844,30 @@ def get_stats():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Thread summaries endpoint
+@app.route('/threads')
+def get_threads():
+    """Get Reddit thread summaries"""
+    global assistant
+    
+    if not assistant:
+        return jsonify({'error': 'Assistant not initialized'}), 500
+    
+    try:
+        summaries = assistant.get_thread_summaries()
+        return jsonify({'threads': summaries})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Initialize assistant on startup
 def create_app():
     """Application factory pattern"""
-    logger.info("Starting Sales RAG Assistant...")
+    logger.info("Starting GTM Intelligence Assistant...")
     success = initialize_assistant()
     if success:
-        logger.info("Assistant initialized successfully")
+        logger.info("GTM Assistant initialized successfully")
     else:
-        logger.warning("Assistant initialization failed - will retry on first request")
+        logger.warning("GTM Assistant initialization failed - will retry on first request")
     return app
 
 # Initialize the app
