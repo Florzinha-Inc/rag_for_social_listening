@@ -15,11 +15,6 @@ CORS(app)
 # Global variable to store the assistant
 assistant = None
 
-# Note: We're using hardcoded Reddit data from the provided JSON files
-# instead of fetching from URLs. The data is loaded directly in the
-# GTMIntelligenceAssistant.load_real_reddit_data() method
-REDDIT_DATA_SOURCE = "hardcoded_from_json_files"
-
 def initialize_assistant():
     """Initialize the GTM intelligence assistant"""
     global assistant
@@ -34,29 +29,14 @@ def initialize_assistant():
         logger.info("Creating GTMIntelligenceAssistant instance...")
         assistant = GTMIntelligenceAssistant(google_api_key)
         
-        logger.info("Loading real Reddit data directly...")
-        # Load the real Reddit data directly, bypass URL fetching completely
-        threads = assistant.load_real_reddit_data()
+        logger.info("Loading and processing Reddit data...")
+        success = assistant.load_and_process_data()
         
-        if threads:
-            logger.info(f"Got {len(threads)} threads from real Reddit data")
-            assistant.threads_data = threads
-            assistant.vector_store.add_threads(threads)
-            
-            total_posts = len(threads)
-            total_comments = sum(len(t['comments']) for t in threads)
-            
-            logger.info(f"Successfully loaded {total_posts} Reddit posts with {total_comments} comments")
-            
-            # Debug: Check vector store
-            if hasattr(assistant.vector_store, 'documents'):
-                logger.info(f"Vector store now has {len(assistant.vector_store.documents)} documents")
-            else:
-                logger.error("Vector store has no documents attribute")
-            
+        if success:
+            logger.info("GTM Intelligence Assistant initialized successfully")
             return True
         else:
-            logger.error("load_real_reddit_data() returned empty list")
+            logger.error("Failed to load and process Reddit data")
             return False
             
     except Exception as e:
@@ -636,8 +616,8 @@ def index():
                     <div class="data-sources">
                         <div class="data-sources-title">Data Sources</div>
                         <div class="source-list">
-                            r/cybersecurity • r/Pentesting • r/Hacking_Tutorials • r/bugbounty<br>
-                            Analyzing discussions about AI tools, penetration testing, and cybersecurity workflows
+                            r/cybersecurity • r/Pentesting • r/bugbounty<br>
+                            Analyzing discussions about AI tools, penetration testing, and XBOW
                         </div>
                     </div>
                 </div>
@@ -864,142 +844,7 @@ def get_stats():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Simple test endpoint to bypass all initialization and directly test the system
-@app.route('/test_direct')
-def test_direct():
-    """Direct test bypassing initialization"""
-    try:
-        google_api_key = os.getenv('GOOGLE_API_KEY')
-        if not google_api_key:
-            return jsonify({'error': 'No Google API key'})
-
-        from reddit_gtm_assistant import GTMVectorStore, GTMIntelligenceRAG
-        
-        # Create vector store directly
-        vector_store = GTMVectorStore()
-        
-        # Add test data directly
-        test_threads = [
-            {
-                'post': {
-                    'id': 'test1',
-                    'title': 'XBOW AI Pain Points Discussion',
-                    'selftext': 'Users are frustrated with XBOW generating too many false positives and low quality vulnerability reports',
-                    'author': 'test_user',
-                    'score': 10,
-                    'upvote_ratio': 0.8,
-                    'num_comments': 5,
-                    'created_utc': 1700000000,
-                    'subreddit': 'cybersecurity',
-                    'permalink': '/test/',
-                    'url': 'https://reddit.com/test/'
-                },
-                'comments': [
-                    {
-                        'id': 'comment1',
-                        'author': 'security_expert',
-                        'body': 'The main pain point with XBOW is that it generates too many false positives. We spend more time triaging bad reports than finding real vulnerabilities. The quality is questionable and it strains our security team resources.',
-                        'score': 15,
-                        'created_utc': 1700001000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'comment2', 
-                        'author': 'pentester_pro',
-                        'body': 'XBOW cannot understand business logic and design flaws. It only finds basic vulnerabilities that any scanner would catch. Human creativity and intuition are still needed for complex security testing.',
-                        'score': 12,
-                        'created_utc': 1700002000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    }
-                ],
-                'thread_url': 'test',
-                'extracted_at': '2024-01-01T00:00:00'
-            }
-        ]
-        
-        # Add threads to vector store
-        vector_store.add_threads(test_threads)
-        
-        # Test search
-        if vector_store.documents and len(vector_store.documents) > 0:
-            search_results = vector_store.search("pain points XBOW", n_results=3)
-            
-            # Test RAG system
-            rag = GTMIntelligenceRAG(vector_store, google_api_key)
-            analysis_result = rag.analyze("What pain points do users mention about XBOW?")
-            
-            return jsonify({
-                'success': True,
-                'documents_created': len(vector_store.documents),
-                'search_results': len(search_results['documents']),
-                'analysis': analysis_result['analysis'][:500] + '...' if len(analysis_result['analysis']) > 500 else analysis_result['analysis'],
-                'sources': analysis_result['sources']
-            })
-        else:
-            return jsonify({'error': 'No documents in vector store'})
-            
-    except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()})
-
-# Test endpoint to force reload and verify data
-@app.route('/force_reload')
-def force_reload():
-    """Force reload of the assistant with debugging"""
-    global assistant
-    
-    try:
-        logger.info("=== FORCE RELOAD TRIGGERED ===")
-        
-        # Reset assistant
-        assistant = None
-        
-        # Initialize fresh
-        google_api_key = os.getenv('GOOGLE_API_KEY')
-        if not google_api_key:
-            return jsonify({'error': 'No Google API key'})
-        
-        logger.info("Creating new assistant instance...")
-        from reddit_gtm_assistant import GTMIntelligenceAssistant
-        assistant = GTMIntelligenceAssistant(google_api_key)
-        
-        logger.info("Loading real Reddit data...")
-        threads = assistant.load_real_reddit_data()
-        
-        if not threads:
-            return jsonify({'error': 'No threads loaded'})
-        
-        logger.info(f"Got {len(threads)} threads")
-        assistant.threads_data = threads
-        assistant.vector_store.add_threads(threads)
-        
-        # Test search immediately
-        if hasattr(assistant.vector_store, 'documents') and assistant.vector_store.documents:
-            search_results = assistant.vector_store.search("XBOW AI pentesting pain points", n_results=3)
-            
-            return jsonify({
-                'success': True,
-                'threads_loaded': len(threads),
-                'total_documents': len(assistant.vector_store.documents),
-                'vector_store_ready': assistant.vector_store.document_vectors is not None,
-                'search_test': {
-                    'query': 'XBOW AI pentesting pain points',
-                    'results_found': len(search_results['documents']),
-                    'sample_results': [doc[:150] + '...' for doc in search_results['documents'][:2]]
-                }
-            })
-        else:
-            return jsonify({'error': 'Vector store has no documents'})
-            
-    except Exception as e:
-        import traceback
-        logger.error(f"Force reload error: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()})
+# Debug endpoint
 @app.route('/debug')
 def debug_data():
     """Debug endpoint to check data loading"""
@@ -1045,7 +890,6 @@ def debug_data():
             'sample_metadata': sample_metadata,
             'search_test': search_test,
             'threads_loaded': len(assistant.threads_data) if assistant.threads_data else 0,
-            'data_source': REDDIT_DATA_SOURCE,
         }
         
         return jsonify(debug_info)
