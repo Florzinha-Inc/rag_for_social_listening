@@ -13,7 +13,7 @@ import google.generativeai as genai
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-#comment
+
 # Configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,161 +41,6 @@ class RedditExtractor:
         except Exception as e:
             logger.error(f"Error fetching Reddit JSON from {url}: {e}")
             return {}
-    
-    def clean_text(self, text: str) -> str:
-        """Clean Reddit text content"""
-        if not text:
-            return ""
-        
-        # Remove Reddit markup
-        text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Bold
-        text = re.sub(r'\*(.*?)\*', r'\1', text)      # Italic
-        text = re.sub(r'~~(.*?)~~', r'\1', text)      # Strikethrough
-        text = re.sub(r'\^(.*?)\^', r'\1', text)      # Superscript
-        text = re.sub(r'&gt;!.*?!&lt;', '', text)    # Spoilers
-        text = re.sub(r'&gt;', '>', text)            # Quote markers
-        text = re.sub(r'&lt;', '<', text)
-        text = re.sub(r'&amp;', '&', text)
-        
-        # Clean up whitespace
-        text = ' '.join(text.split())
-        
-        return text.strip()
-    
-    def extract_comments_recursive(self, comment_data: Dict, parent_id: str = None) -> List[Dict]:
-        """Recursively extract comments from Reddit thread"""
-        comments = []
-        
-        if not comment_data or comment_data.get('kind') != 't1':
-            return comments
-        
-        data = comment_data.get('data', {})
-        
-        # Skip deleted/removed comments and AutoModerator
-        author = data.get('author', '')
-        body = data.get('body', '')
-        
-        if author in ['[deleted]', '[removed]', 'AutoModerator'] or not body or body in ['[deleted]', '[removed]']:
-            return comments
-        
-        comment = {
-            'id': data.get('id'),
-            'author': author,
-            'body': self.clean_text(body),
-            'score': data.get('score', 0),
-            'created_utc': data.get('created_utc', 0),
-            'parent_id': parent_id,
-            'replies_count': 0,
-            'depth': 0
-        }
-        
-        # Calculate depth based on parent
-        if parent_id:
-            comment['depth'] = 1  # Simplified depth calculation
-        
-        # Only include substantial comments with reasonable score threshold
-        if len(comment['body']) > 10 and comment['score'] >= -10:  # More lenient filters
-            comments.append(comment)
-        
-        # Process replies
-        replies = data.get('replies', {})
-        if isinstance(replies, dict) and replies.get('data', {}).get('children'):
-            for reply in replies['data']['children']:
-                if reply.get('kind') == 't1':  # Only process comment replies
-                    reply_comments = self.extract_comments_recursive(reply, comment['id'])
-                    for reply_comment in reply_comments:
-                        reply_comment['depth'] = comment['depth'] + 1
-                    comments.extend(reply_comments)
-            
-            comment['replies_count'] = len([c for c in comments if c['parent_id'] == comment['id']])
-        
-        return comments
-    
-    def extract_thread_data(self, reddit_url: str) -> Dict:
-        """Extract complete thread data from Reddit JSON URL"""
-        data = self.fetch_reddit_json(reddit_url)
-        
-        if not data:
-            logger.error(f"No data returned from {reddit_url}")
-            return {}
-        
-        if not isinstance(data, list) or len(data) < 2:
-            logger.error(f"Invalid Reddit data structure from {reddit_url}. Expected list with 2+ items, got: {type(data)}")
-            if isinstance(data, list):
-                logger.error(f"Data length: {len(data)}")
-            return {}
-        
-        try:
-            # First element is the post, second is comments
-            post_listing = data[0]
-            comments_listing = data[1]
-            
-            if not post_listing.get('data', {}).get('children'):
-                logger.error(f"No post children found in {reddit_url}")
-                return {}
-                
-            post_data = post_listing['data']['children'][0]['data']
-            comments_data = comments_listing['data']['children']
-            
-            logger.info(f"Processing post: '{post_data.get('title', 'No title')}' with {len(comments_data)} comment objects")
-            
-            # Extract main post
-            post = {
-                'id': post_data.get('id'),
-                'title': self.clean_text(post_data.get('title', '')),
-                'selftext': self.clean_text(post_data.get('selftext', '')),
-                'author': post_data.get('author'),
-                'score': post_data.get('score', 0),
-                'upvote_ratio': post_data.get('upvote_ratio', 0),
-                'num_comments': post_data.get('num_comments', 0),
-                'created_utc': post_data.get('created_utc', 0),
-                'subreddit': post_data.get('subreddit'),
-                'permalink': f"https://reddit.com{post_data.get('permalink', '')}",
-                'url': reddit_url.replace('.json', '')
-            }
-            
-            # Extract comments
-            comments = []
-            for comment_data in comments_data:
-                if comment_data.get('kind') == 'more':  # Skip "load more comments" entries
-                    continue
-                extracted_comments = self.extract_comments_recursive(comment_data)
-                comments.extend(extracted_comments)
-            
-            # Sort comments by score and relevance
-            comments.sort(key=lambda x: (x['score'], -x['depth']), reverse=True)
-            
-            logger.info(f"Extracted {len(comments)} valid comments from {reddit_url}")
-            
-            return {
-                'post': post,
-                'comments': comments,
-                'thread_url': reddit_url,
-                'extracted_at': datetime.now().isoformat()
-            }
-            
-        except Exception as e:
-            logger.error(f"Error processing Reddit thread {reddit_url}: {e}")
-            return {}
-    
-    def process_multiple_threads(self, reddit_urls: List[str]) -> List[Dict]:
-        """Process multiple Reddit threads"""
-        threads = []
-        
-        for url in reddit_urls:
-            logger.info(f"Processing Reddit thread: {url}")
-            thread_data = self.extract_thread_data(url)
-            
-            if thread_data:
-                threads.append(thread_data)
-                logger.info(f"Successfully processed {url}")
-            else:
-                logger.warning(f"Failed to process {url}")
-            
-            time.sleep(1)  # Be respectful to Reddit's servers
-        
-        logger.info(f"Total threads processed: {len(threads)}")
-        return threads
 
 
 class GTMVectorStore:
@@ -232,7 +77,7 @@ class GTMVectorStore:
                     'subreddit': post['subreddit'],
                     'score': post['score'],
                     'num_comments': post['num_comments'],
-                    'upvote_ratio': post['upvote_ratio'],
+                    'upvote_ratio': post.get('upvote_ratio', 0),
                     'url': post['url'],
                     'created_utc': post['created_utc']
                 }
@@ -525,12 +370,12 @@ class GTMIntelligenceAssistant:
         
         real_threads = []
         
-        # Data from r/cybersecurity - "Is Penetration Testing still worth it after seeing XBOW at work?"
+        # Data from r/cybersecurity
         cybersec_thread = {
             'post': {
                 'id': '1ly9nxf',
                 'title': 'Is Penetration Testing still worth it after seeing XBOW at work?',
-                'selftext': 'So...Recently, some of my seniors conducted a workshop about "Agentic AI" and its scope. The speaker at that particular workshop actually worked at a company developing AI agents. He asked us a question along the lines "Can AI take jobs of a Bug Bounty hunter or a Pentester in the near future?". I know AI has a lot of capabilities but these things seem to complex for an AI so I said no. Well, then he told us about XBOW and its accuracy in finding bugs, I had second thoughts. XBOW is an AI agent and it is currently at the third place in the United States of America on Hackerone. It was at first place but dropped down to third. I\'m pursuing my cybersecurity career as a penetration tester and I just wanna know should I proceed on that path or should I change it?',
+                'selftext': 'So...Recently, some of my seniors conducted a workshop about "Agentic AI" and its scope. The speaker at that particular workshop actually worked at a company developing AI agents. He asked us a question along the lines "Can AI take jobs of a Bug Bounty hunter or a Pentester in the near future?". I know AI has a lot of capabilities but these things seem to complex for an AI so I said no. Well, then he told us about XBOW and its accuracy in finding bugs, I had second thoughts. XBOW is an AI agent and it is currently at the third place in the United States of America on Hackerone. It was at first place but dropped down to third. I am pursuing my cybersecurity career as a penetration tester and I just wanna know should I proceed on that path or should I change it?',
                 'author': 'RayyanRA7',
                 'score': 0,
                 'upvote_ratio': 0.39,
@@ -544,7 +389,7 @@ class GTMIntelligenceAssistant:
                 {
                     'id': 'n2vbczt',
                     'author': 'cloudfox1',
-                    'body': 'That\'s the sales person\'s job, to sell you their tools, ofc they are going to talk it up',
+                    'body': 'That is the sales person job, to sell you their tools, ofc they are going to talk it up',
                     'score': 13,
                     'created_utc': 1752397400,
                     'parent_id': None,
@@ -554,7 +399,7 @@ class GTMIntelligenceAssistant:
                 {
                     'id': 'n2vemyp',
                     'author': 'Strange-Mountain1810',
-                    'body': 'It found easy to find xss and sprayed vdp\'s hardly pentest replacement.',
+                    'body': 'It found easy to find xss and sprayed vdp hardly pentest replacement.',
                     'score': 9,
                     'created_utc': 1752399364,
                     'parent_id': None,
@@ -562,29 +407,9 @@ class GTMIntelligenceAssistant:
                     'depth': 0
                 },
                 {
-                    'id': 'n2vaslt',
-                    'author': 'Beautiful_Watch_7215',
-                    'body': 'Change to what? What jobs don\'t have demos of an AI solution replacing it?',
-                    'score': 8,
-                    'created_utc': 1752397066,
-                    'parent_id': None,
-                    'replies_count': 3,
-                    'depth': 0
-                },
-                {
-                    'id': 'n2ve0oh',
-                    'author': 'Zatetics',
-                    'body': 'Is this an ad?',
-                    'score': 7,
-                    'created_utc': 1752398989,
-                    'parent_id': None,
-                    'replies_count': 1,
-                    'depth': 0
-                },
-                {
                     'id': 'n9tlq5h',
                     'author': 'greybrimstone',
-                    'body': 'XBOW does not perform nearly as well as they make it sound. It is, for all intents and purposes, a really cool automated vulnerability scanner. The experiments they\'ve done pitting their AI against humans have been heavily biased. Their rankings on bug bounty programs, speak to quantity of easy-to-find issues, not quality. AI cannot compete with human creativity, intuition, and ability to make leaps. AI only knows what it was trained on. Sure, it\'s great and useful, but not at all as capable as a real tester.',
+                    'body': 'XBOW does not perform nearly as well as they make it sound. It is, for all intents and purposes, a really cool automated vulnerability scanner. The experiments they have done pitting their AI against humans have been heavily biased. Their rankings on bug bounty programs, speak to quantity of easy-to-find issues, not quality. AI cannot compete with human creativity, intuition, and ability to make leaps. AI only knows what it was trained on. Sure, it is great and useful, but not at all as capable as a real tester.',
                     'score': 2,
                     'created_utc': 1755741602,
                     'parent_id': None,
@@ -596,7 +421,7 @@ class GTMIntelligenceAssistant:
             'extracted_at': datetime.now().isoformat()
         }
         
-        # Data from r/Pentesting - "Will XBOW or AIs be able to replace Pentesters?"
+        # Data from r/Pentesting
         pentesting_thread = {
             'post': {
                 'id': '1lmzvx8',
@@ -615,7 +440,7 @@ class GTMIntelligenceAssistant:
                 {
                     'id': 'n0g90j3',
                     'author': 'Clean-Drop9629',
-                    'body': 'I recently spoke with a contact at one of the organizations that has received a significant number of vulnerability reports from XBOW. They shared that tools like XBOW have made their work substantially more difficult, as they now spend countless hours triaging and validating reports many of which turn out to be false positives or issues of such low criticality that they fall outside the organization\'s risk threshold. While XBOW may appear impressive due to the volume of submissions, the quality and relevance of many of these findings are questionable, ultimately straining the receiving team\'s resources.',
+                    'body': 'I recently spoke with a contact at one of the organizations that has received a significant number of vulnerability reports from XBOW. They shared that tools like XBOW have made their work substantially more difficult, as they now spend countless hours triaging and validating reports many of which turn out to be false positives or issues of such low criticality that they fall outside the organization risk threshold. While XBOW may appear impressive due to the volume of submissions, the quality and relevance of many of these findings are questionable, ultimately straining the receiving team resources.',
                     'score': 3,
                     'created_utc': 1751223076,
                     'parent_id': None,
@@ -631,69 +456,18 @@ class GTMIntelligenceAssistant:
                     'parent_id': None,
                     'replies_count': 0,
                     'depth': 0
-                },
-                {
-                    'id': 'n1tc7h0',
-                    'author': 'Reasonable_Cut8116',
-                    'body': 'I dont think it will fully replace senior pentesters but it will absolutely replace your current vulnerability scanner and junior pentesters. I own an MSP/MSSP and we use a platform called StealthNet AI(stealthnet.ai) to offer automated pentests via AI agents. They have a fleet of AI agents (External,Vishing,API,etc).Their API/Web agent is really impressive it finds things that traditional vulnerability scanners miss due to not understanding business logic. Overall they perform at the level of a junior - intermediate pentester.',
-                    'score': 1,
-                    'created_utc': 1751899180,
-                    'parent_id': None,
-                    'replies_count': 1,
-                    'depth': 0
                 }
             ],
             'thread_url': 'https://reddit.com/r/Pentesting/comments/1lmzvx8/.json',
             'extracted_at': datetime.now().isoformat()
         }
         
-        # Data from r/Hacking_Tutorials - "Is xbow ai snake oil or the real deal"
-        hacking_thread = {
-            'post': {
-                'id': '1ln80yl',
-                'title': 'Is xbow ai snake oil or the real deal',
-                'selftext': 'What do you think? Its scary to be honest',
-                'author': 'Impossible-Line1070',
-                'score': 0,
-                'upvote_ratio': 0.5,
-                'num_comments': 11,
-                'created_utc': 1751179027,
-                'subreddit': 'Hacking_Tutorials',
-                'permalink': '/r/Hacking_Tutorials/comments/1ln80yl/is_xbow_ai_snake_oil_or_the_real_deal/',
-                'url': 'https://reddit.com/r/Hacking_Tutorials/comments/1ln80yl/is_xbow_ai_snake_oil_or_the_real_deal/'
-            },
-            'comments': [
-                {
-                    'id': 'n0dc3vu',
-                    'author': 'Sqooky',
-                    'body': 'AI is just another tool to help us do work. We have tens of products in our suite and it still wont catch vulnerabilities that humans can find. Lots of companies don\'t like tossing their data into a black-box. Especially proprietary and potentially vulnerability related data. Mainly because of loss of control.',
-                    'score': 3,
-                    'created_utc': 1751180043,
-                    'parent_id': None,
-                    'replies_count': 1,
-                    'depth': 0
-                },
-                {
-                    'id': 'napheni',
-                    'author': 'Sqooky',
-                    'body': 'The point is - You can be a horrible "hacker" and land at the top of H1s leaderboard. Points mean nothing when programs like the DoDs exist that\'ll give you anything for anything. Let\'s also not pretend xbow is 100% only AI. We don\'t have full AI. We have generative & language models. It\'s 100% going through human review and analysis before its submitted to any company.',
-                    'score': 1,
-                    'created_utc': 1756181428,
-                    'parent_id': None,
-                    'replies_count': 0,
-                    'depth': 0
-                }
-            ],
-            'thread_url': 'https://reddit.com/r/Hacking_Tutorials/comments/1ln80yl/.json',
-            'extracted_at': datetime.now().isoformat()
-        }
-        
-        # Data from r/bugbounty - "How AI is affecting pentesting and bug bounties"
+        # Data from r/bugbounty
         bugbounty_thread = {
             'post': {
                 'id': '1l97esk',
                 'title': 'How AI is affecting pentesting and bug bounties',
-                'selftext': 'Recently, I came across with a project named "Xbow" and it\'s actually the current top US-based hacker on Hackerone\'s leaderboard. It\'s a fully automated AI agent trained on real vulnerability data and will be available soon. Do you think it\'s still worth to learn pentesting and get into bug bounties?',
+                'selftext': 'Recently, I came across with a project named XBOW and it is actually the current top US-based hacker on Hackerone leaderboard. It is a fully automated AI agent trained on real vulnerability data and will be available soon. Do you think it is still worth to learn pentesting and get into bug bounties?',
                 'author': 'S4vz4d',
                 'score': 14,
                 'upvote_ratio': 0.7,
@@ -707,7 +481,7 @@ class GTMIntelligenceAssistant:
                 {
                     'id': 'mxcbgt2',
                     'author': 'chopper332nd',
-                    'body': 'As a customer of hacker one I\'m more worried about the crap we\'re gunna have to sort through now. We have scanners and other companies that offer AI agents for pentesting which find the low hanging fruit. We have a Bug Bounty program to find more nuanced vulnerabilities in our products that other security testing can\'t find.',
+                    'body': 'As a customer of hacker one I am more worried about the crap we are gunna have to sort through now. We have scanners and other companies that offer AI agents for pentesting which find the low hanging fruit. We have a Bug Bounty program to find more nuanced vulnerabilities in our products that other security testing cannot find.',
                     'score': 21,
                     'created_utc': 1749712425,
                     'parent_id': None,
@@ -723,149 +497,19 @@ class GTMIntelligenceAssistant:
                     'parent_id': None,
                     'replies_count': 1,
                     'depth': 0
-                },
-                {
-                    'id': 'mxeewa2',
-                    'author': 'k4lashhnikov',
-                    'body': 'Sure, they can surpass human capabilities but there is little point in analyzing hundreds of thousands of endpoints to find uninteresting things or false positives, If an AI analyzes misconfigurations of JS, code, or exposed credentials, it cannot (for now) have the ability to manually modify things that apparently work well. For example, a step-by-step business flow, if the AI superficially sees that the flow is correct, it will leave it as is, but a human has the idea of seeing what happens if a specific step is skipped.',
-                    'score': 4,
-                    'created_utc': 1749743477,
-                    'parent_id': None,
-                    'replies_count': 0,
-                    'depth': 0
-                },
-                {
-                    'id': 'nchqml7',
-                    'author': 'Reasonable_Cut8116',
-                    'body': 'It does surprisingly well. I have heard of Xbow. We use a similar tool from StealthNet AI(stealthnet.ai). They have a fleet of AI agents to automate penetration testing. Compared to normal vulnerability scanners they perform 100x better. You can think of them as a really smart vulnerbility scanner or a junior pentester. They can perform really well but it wont be able to find everything. More complex attacks will still require humans.',
-                    'score': 2,
-                    'created_utc': 1757041432,
-                    'parent_id': None,
-                    'replies_count': 0,
-                    'depth': 0
                 }
             ],
             'thread_url': 'https://reddit.com/r/bugbounty/comments/1l97esk/.json',
             'extracted_at': datetime.now().isoformat()
         }
         
-        real_threads.extend([cybersec_thread, pentesting_thread, hacking_thread, bugbounty_thread])
+        real_threads.extend([cybersec_thread, pentesting_thread, bugbounty_thread])
         
         logger.info(f"Loaded {len(real_threads)} threads with real Reddit data")
         for thread in real_threads:
             logger.info(f"Thread: {thread['post']['title']} from r/{thread['post']['subreddit']} with {len(thread['comments'])} comments")
         
-        return real_threads/'
-            },
-            'comments': [
-                {
-                    'id': 'n0dc3vu',
-                    'author': 'Sqooky',
-                    'body': 'AI is just another tool to help us do work. We have tens of products in our suite and it still wont catch vulnerabilities that humans can find. Lots of companies don\'t like tossing their data into a black-box. Especially proprietary and potentially vulnerability related data. Mainly because of loss of control.',
-                    'score': 3,
-                    'created_utc': 1751180043,
-                    'parent_id': None,
-                    'replies_count': 1,
-                    'depth': 0
-                },
-                {
-                    'id': 'napheni',
-                    'author': 'Sqooky',
-                    'body': 'The point is - You can be a horrible "hacker" and land at the top of H1s leaderboard. Points mean nothing when programs like the DoDs exist that\'ll give you anything for anything. Let\'s also not pretend xbow is 100% only AI. We don\'t have full AI. We have generative & language models. It\'s 100% going through human review and analysis before its submitted to any company.',
-                    'score': 1,
-                    'created_utc': 1756181428,
-                    'parent_id': None,
-                    'replies_count': 0,
-                    'depth': 0
-                }
-            ],
-            'thread_url': 'https://reddit.com/r/Hacking_Tutorials/comments/1ln80yl/.json',
-            'extracted_at': datetime.now().isoformat()
-        }
-        
-        # Data from r/bugbounty - "How AI is affecting pentesting and bug bounties"
-        bugbounty_thread = {
-            'post': {
-                'id': '1l97esk',
-                'title': 'How AI is affecting pentesting and bug bounties',
-                'selftext': 'Recently, I came across with a project named "Xbow" and it\'s actually the current top US-based hacker on Hackerone\'s leaderboard. It\'s a fully automated AI agent trained on real vulnerability data and will be available soon. Do you think it\'s still worth to learn pentesting and get into bug bounties?',
-                'author': 'S4vz4d',
-                'score': 14,
-                'upvote_ratio': 0.7,
-                'num_comments': 12,
-                'created_utc': 1749684165,
-                'subreddit': 'bugbounty',
-                'permalink': '/r/bugbounty/comments/1l97esk/how_ai_is_affecting_pentesting_and_bug_bounties/',
-                'url': 'https://reddit.com/r/bugbounty/comments/1l97esk/how_ai_is_affecting_pentesting_and_bug_bounties/'
-            },
-            'comments': [
-                {
-                    'id': 'mxcbgt2',
-                    'author': 'chopper332nd',
-                    'body': 'As a customer of hacker one I\'m more worried about the crap we\'re gunna have to sort through now. We have scanners and other companies that offer AI agents for pentesting which find the low hanging fruit. We have a Bug Bounty program to find more nuanced vulnerabilities in our products that other security testing can\'t find.',
-                    'score': 21,
-                    'created_utc': 1749712425,
-                    'parent_id': None,
-                    'replies_count': 0,
-                    'depth': 0
-                },
-                {
-                    'id': 'mxbvg2p',
-                    'author': 'k4lashhnikov',
-                    'body': 'The human factor is always required for logic errors, vertical or horizontal scaling, AI and automated tools cannot understand the business context. If AIs have vulnerabilities and are not imperfect, what makes you think they will replace the human hacker?',
-                    'score': 14,
-                    'created_utc': 1749703837,
-                    'parent_id': None,
-                    'replies_count': 1,
-                    'depth': 0
-                },
-                {
-                    'id': 'mxeewa2',
-                    'author': 'k4lashhnikov',
-                    'body': 'Sure, they can surpass human capabilities but there is little point in analyzing hundreds of thousands of endpoints to find uninteresting things or false positives, If an AI analyzes misconfigurations of JS, code, or exposed credentials, it cannot (for now) have the ability to manually modify things that apparently work well. For example, a step-by-step business flow, if the AI superficially sees that the flow is correct, it will leave it as is, but a human has the idea of seeing what happens if a specific step is skipped.',
-                    'score': 4,
-                    'created_utc': 1749743477,
-                    'parent_id': None,
-                    'replies_count': 0,
-                    'depth': 0
-                },
-                {
-                    'id': 'nchqml7',
-                    'author': 'Reasonable_Cut8116',
-                    'body': 'It does surprisingly well. I have heard of Xbow. We use a similar tool from StealthNet AI(stealthnet.ai). They have a fleet of AI agents to automate penetration testing. Compared to normal vulnerability scanners they perform 100x better. You can think of them as a really smart vulnerbility scanner or a junior pentester. They can perform really well but it wont be able to find everything. More complex attacks will still require humans.',
-                    'score': 2,
-                    'created_utc': 1757041432,
-                    'parent_id': None,
-                    'replies_count': 0,
-                    'depth': 0
-                }
-            ],
-            'thread_url': 'https://reddit.com/r/bugbounty/comments/1l97esk/.json',
-            'extracted_at': datetime.now().isoformat()
-        }
-        
-        real_threads.extend([cybersec_thread, pentesting_thread, hacking_thread, bugbounty_thread])
         return real_threads
-    
-    def load_reddit_threads(self, reddit_urls: List[str]):
-        """Load Reddit threads into the system"""
-        logger.info("Loading Reddit threads for GTM analysis...")
-        
-        # Use the real Reddit data from the provided JSON files
-        threads = self.load_real_reddit_data()
-        
-        if threads:
-            self.threads_data = threads
-            self.vector_store.add_threads(threads)
-            
-            total_posts = len(threads)
-            total_comments = sum(len(t['comments']) for t in threads)
-            
-            logger.info(f"Loaded {total_posts} Reddit posts with {total_comments} comments from actual Reddit data")
-            return total_posts
-        
-        logger.error("Failed to load Reddit thread data")
-        return 0
     
     def analyze(self, query: str) -> Dict[str, Any]:
         """Analyze Reddit discussions for GTM intelligence"""
@@ -883,20 +527,3 @@ class GTMIntelligenceAssistant:
             'analyses_performed': len(self.rag_system.analysis_history)
         }
         return stats
-    
-    def get_thread_summaries(self) -> List[Dict]:
-        """Get summaries of loaded Reddit threads"""
-        summaries = []
-        
-        for thread in self.threads_data:
-            post = thread['post']
-            summaries.append({
-                'title': post['title'],
-                'subreddit': post['subreddit'],
-                'score': post['score'],
-                'num_comments': post['num_comments'],
-                'upvote_ratio': post['upvote_ratio'],
-                'url': post['url']
-            })
-        
-        return summaries
