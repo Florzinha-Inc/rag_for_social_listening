@@ -222,483 +222,264 @@ class GTMIntelligenceAssistant:
         self.threads_data = []
     
     def load_and_process_data(self):
-        """Load hardcoded data and process it"""
-        logger.info("Loading hardcoded Reddit data...")
+        """Load real Reddit data and process it"""
+        logger.info("Loading real Reddit data...")
         
-        # Comprehensive dataset with diverse topics and perspectives
-        threads = [
-            # Thread 1: XBOW Pain Points
-            {
-                'post': {
-                    'id': 'xbow_pain_1',
-                    'title': 'Major pain points with XBOW AI security tool',
-                    'selftext': 'XBOW generates too many false positives. The main problem is noise and low-quality reports that waste security team time. What are your experiences with AI pentesting tools?',
-                    'author': 'security_user',
-                    'score': 15,
-                    'upvote_ratio': 0.8,
-                    'num_comments': 4,
-                    'created_utc': 1700000000,
-                    'subreddit': 'cybersecurity',
-                    'permalink': '/xbow_pain_1/',
-                    'url': 'https://reddit.com/r/cybersecurity/comments/xbow_pain_1/'
-                },
-                'comments': [
+        # Real Reddit data from the JSON files provided
+        threads = []
+        
+        # Parse cybersecurity subreddit data (document 1)
+        cybersecurity_data = {
+            "kind": "Listing",
+            "data": {
+                "children": [
                     {
-                        'id': 'c1',
-                        'author': 'pentester1',
-                        'body': 'The biggest pain point with XBOW is false positives. We spend hours triaging reports that turn out to be nothing. The quality is poor and it creates more work than value.',
-                        'score': 25,
-                        'created_utc': 1700001000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'c2',
-                        'author': 'security_expert',
-                        'body': 'XBOW cannot understand business logic or context. It finds basic vulnerabilities but misses complex issues that require human insight. The AI hype is overblown.',
-                        'score': 20,
-                        'created_utc': 1700002000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'c3',
-                        'author': 'ciso_veteran',
-                        'body': 'AI security tools like XBOW generate overwhelming noise. The signal-to-noise ratio is terrible. We need tools that prioritize findings by business impact, not just volume.',
-                        'score': 18,
-                        'created_utc': 1700003000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'c4',
-                        'author': 'bug_hunter',
-                        'body': 'The main frustration is that XBOW finds easy, low-impact issues but misses the creative vulnerabilities that actually matter. Human creativity and intuition cannot be replaced.',
-                        'score': 22,
-                        'created_utc': 1700004000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
+                        "kind": "t3",
+                        "data": {
+                            "subreddit": "cybersecurity",
+                            "selftext": "So...Recently, some of my seniors conducted a workshop about \"Agentic AI\" and its scope. The speaker at that particular workshop actually worked at a company developing AI agents. He asked us a question along the lines \"Can AI take jobs of a Bug Bounty hunter or a Pentester in the near future?\". I know AI has a lot of capabilities but these things seem to complex for an AI so I said no. Well, then he told us about XBOW and its accuracy in finding bugs, I had second thoughts. XBOW is an AI agent and it is currently at the third place in the United States of America on Hackerone. It was at first place but dropped down to third. I'm pursuing my cybersecurity career as a penetration tester and I just wanna know should I proceed on that path or should I change it? I still want to do it as I am more interested in it but now I'm having double thoughts.",
+                            "title": "Is Penetration Testing still worth it after seeing XBOW at work?",
+                            "score": 0,
+                            "upvote_ratio": 0.39,
+                            "num_comments": 17,
+                            "url": "https://www.reddit.com/r/cybersecurity/comments/1ly9nxf/is_penetration_testing_still_worth_it_after/",
+                            "author": "RayyanRA7",
+                            "created_utc": 1752350549
+                        }
                     }
-                ],
-                'thread_url': 'xbow_pain_1',
-                'extracted_at': datetime.now().isoformat()
+                ]
+            }
+        }
+        
+        # Get comments from document 1
+        cybersecurity_comments = [
+            {
+                "author": "cloudfox1",
+                "body": "That's the sales person's job, to sell you their tools, ofc they are going to talk it up",
+                "score": 13,
+                "created_utc": 1752397400
             },
-
-            # Thread 2: AI Replacement Concerns
             {
-                'post': {
-                    'id': 'ai_replacement_1',
-                    'title': 'Will AI replace penetration testers? XBOW concerns',
-                    'selftext': 'Seeing XBOW rank high on bug bounty platforms has me worried. Are human pentesters becoming obsolete? What problems do you see with AI security tools?',
-                    'author': 'worried_pentester',
-                    'score': 12,
-                    'upvote_ratio': 0.7,
-                    'num_comments': 3,
-                    'created_utc': 1700010000,
-                    'subreddit': 'Pentesting',
-                    'permalink': '/ai_replacement_1/',
-                    'url': 'https://reddit.com/r/Pentesting/comments/ai_replacement_1/'
-                },
-                'comments': [
-                    {
-                        'id': 'd1',
-                        'author': 'red_teamer',
-                        'body': 'AI tools like XBOW are sophisticated scanners, not replacements for human testers. They cannot understand business context or think creatively about attack vectors. The quality of their findings is questionable.',
-                        'score': 15,
-                        'created_utc': 1700011000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'd2',
-                        'author': 'security_consultant',
-                        'body': 'The problem with XBOW is volume over quality. It submits hundreds of low-severity findings that create more work for security teams. The triage burden is enormous.',
-                        'score': 19,
-                        'created_utc': 1700012000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'd3',
-                        'author': 'veteran_hacker',
-                        'body': 'AI cannot replace human creativity in finding logical flaws and business-specific vulnerabilities. XBOW finds obvious issues that any scanner would catch. Real penetration testing requires human intuition.',
-                        'score': 17,
-                        'created_utc': 1700013000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    }
-                ],
-                'thread_url': 'ai_replacement_1',
-                'extracted_at': datetime.now().isoformat()
+                "author": "Strange-Mountain1810",
+                "body": "It found easy to find xss and sprayed vdp's hardly pentest replacement.",
+                "score": 9,
+                "created_utc": 1752399364
             },
-
-            # Thread 3: Feature Requests and Gaps
             {
-                'post': {
-                    'id': 'feature_gaps_1',
-                    'title': 'What features are missing from AI pentesting tools like XBOW?',
-                    'selftext': 'I have been evaluating AI security tools and while they are impressive, there are clear gaps. What features would make these tools more valuable for enterprise security teams?',
-                    'author': 'enterprise_security',
-                    'score': 28,
-                    'upvote_ratio': 0.85,
-                    'num_comments': 6,
-                    'created_utc': 1700020000,
-                    'subreddit': 'cybersecurity',
-                    'permalink': '/feature_gaps_1/',
-                    'url': 'https://reddit.com/r/cybersecurity/comments/feature_gaps_1/'
-                },
-                'comments': [
-                    {
-                        'id': 'f1',
-                        'author': 'security_architect',
-                        'body': 'We need better integration with SIEM and ticketing systems. XBOW outputs are hard to integrate into existing workflows. Better API support and standardized formats would help.',
-                        'score': 32,
-                        'created_utc': 1700021000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'f2',
-                        'author': 'devsec_lead',
-                        'body': 'AI tools need better context awareness. They should understand our tech stack, business logic, and custom applications. Generic scanning is not enough for modern enterprises.',
-                        'score': 28,
-                        'created_utc': 1700022000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'f3',
-                        'author': 'compliance_officer',
-                        'body': 'Risk prioritization based on business impact is missing. XBOW treats all findings equally. We need tools that understand our compliance requirements and business criticality.',
-                        'score': 25,
-                        'created_utc': 1700023000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'f4',
-                        'author': 'security_manager',
-                        'body': 'Better reporting for executives is needed. Technical details are fine for engineers, but we need business-friendly summaries and metrics for leadership.',
-                        'score': 22,
-                        'created_utc': 1700024000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'f5',
-                        'author': 'cloud_security',
-                        'body': 'Cloud-native security understanding is lacking. AI tools need to better understand containerized environments, serverless functions, and cloud-specific attack vectors.',
-                        'score': 30,
-                        'created_utc': 1700025000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'f6',
-                        'author': 'incident_responder',
-                        'body': 'Real-time threat detection and response capabilities are missing. Current AI tools are mostly for assessment, not active defense or incident response.',
-                        'score': 26,
-                        'created_utc': 1700026000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    }
-                ],
-                'thread_url': 'feature_gaps_1',
-                'extracted_at': datetime.now().isoformat()
+                "author": "Beautiful_Watch_7215",
+                "body": "Change to what? What jobs don't have demos of an AI solution replacing it?",
+                "score": 8,
+                "created_utc": 1752397066
             },
-
-            # Thread 4: Positive Experiences and Use Cases
             {
-                'post': {
-                    'id': 'positive_ai_1',
-                    'title': 'AI security tools that actually work well - success stories',
-                    'selftext': 'While there is a lot of criticism of AI security tools, what are some success stories? When have these tools provided real value to your security program?',
-                    'author': 'pragmatic_ciso',
-                    'score': 35,
-                    'upvote_ratio': 0.9,
-                    'num_comments': 7,
-                    'created_utc': 1700030000,
-                    'subreddit': 'cybersecurity',
-                    'permalink': '/positive_ai_1/',
-                    'url': 'https://reddit.com/r/cybersecurity/comments/positive_ai_1/'
-                },
-                'comments': [
-                    {
-                        'id': 'p1',
-                        'author': 'startup_cto',
-                        'body': 'AI tools excel at continuous monitoring and baseline establishment. We use them for ongoing security posture assessment rather than one-off pentests. The trend analysis is valuable.',
-                        'score': 28,
-                        'created_utc': 1700031000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'p2',
-                        'author': 'fintech_security',
-                        'body': 'For compliance scanning and policy enforcement, AI tools are excellent. They consistently check configurations and catch drift that humans might miss.',
-                        'score': 24,
-                        'created_utc': 1700032000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'p3',
-                        'author': 'security_educator',
-                        'body': 'AI tools are great for training junior security staff. They provide consistent results that can be used as learning examples and help establish security testing methodologies.',
-                        'score': 31,
-                        'created_utc': 1700033000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'p4',
-                        'author': 'budget_conscious_admin',
-                        'body': 'For small teams with limited budgets, AI tools provide security coverage we could not otherwise afford. They are not perfect but better than nothing.',
-                        'score': 20,
-                        'created_utc': 1700034000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'p5',
-                        'author': 'devops_security',
-                        'body': 'Integration with CI/CD pipelines is where AI tools shine. They provide fast feedback during development and catch issues before production deployment.',
-                        'score': 33,
-                        'created_utc': 1700035000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'p6',
-                        'author': 'scale_security',
-                        'body': 'For large environments with thousands of assets, AI tools provide the scale that human teams cannot match. The key is proper tuning and customization.',
-                        'score': 27,
-                        'created_utc': 1700036000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'p7',
-                        'author': 'threat_hunter',
-                        'body': 'AI excels at pattern recognition in logs and network traffic. For threat hunting and anomaly detection, these tools provide insights humans would miss.',
-                        'score': 29,
-                        'created_utc': 1700037000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    }
-                ],
-                'thread_url': 'positive_ai_1',
-                'extracted_at': datetime.now().isoformat()
+                "author": "Zatetics",
+                "body": "Is this an ad?",
+                "score": 7,
+                "created_utc": 1752398989
             },
-
-            # Thread 5: Competitive Analysis
             {
-                'post': {
-                    'id': 'competitive_analysis_1',
-                    'title': 'XBOW vs other AI security tools - comparison and alternatives',
-                    'selftext': 'Has anyone compared XBOW to competitors like Pentera, AttackIQ, or other AI-powered security platforms? What are the key differences and which provides better value?',
-                    'author': 'security_buyer',
-                    'score': 42,
-                    'upvote_ratio': 0.88,
-                    'num_comments': 8,
-                    'created_utc': 1700040000,
-                    'subreddit': 'cybersecurity',
-                    'permalink': '/competitive_analysis_1/',
-                    'url': 'https://reddit.com/r/cybersecurity/comments/competitive_analysis_1/'
-                },
-                'comments': [
-                    {
-                        'id': 'comp1',
-                        'author': 'vendor_evaluator',
-                        'body': 'Pentera focuses more on network-based attacks while XBOW is stronger in web application testing. Pentera has better enterprise integration but XBOW has more comprehensive coverage.',
-                        'score': 35,
-                        'created_utc': 1700041000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'comp2',
-                        'author': 'enterprise_buyer',
-                        'body': 'AttackIQ is more focused on breach and attack simulation while XBOW does vulnerability discovery. Different use cases but both valuable for comprehensive security programs.',
-                        'score': 28,
-                        'created_utc': 1700042000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'comp3',
-                        'author': 'security_consultant',
-                        'body': 'Price-wise, XBOW is more accessible for mid-market companies. Enterprise platforms like Pentera require significant investment and dedicated resources.',
-                        'score': 32,
-                        'created_utc': 1700043000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'comp4',
-                        'author': 'procurement_specialist',
-                        'body': 'Support and professional services vary significantly. Traditional vendors have better support structures while newer AI tools like XBOW rely more on community and documentation.',
-                        'score': 25,
-                        'created_utc': 1700044000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'comp5',
-                        'author': 'multi_tool_user',
-                        'body': 'We use multiple tools in combination. XBOW for continuous scanning, Pentera for quarterly assessments, and traditional pentesting for critical applications. Each has its place.',
-                        'score': 38,
-                        'created_utc': 1700045000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'comp6',
-                        'author': 'technology_analyst',
-                        'body': 'The technology stack matters. Cloud-native organizations might prefer different tools than traditional on-premises environments. XBOW adapts well to modern architectures.',
-                        'score': 30,
-                        'created_utc': 1700046000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'comp7',
-                        'author': 'roi_focused',
-                        'body': 'ROI calculation is complex. Lower upfront costs but higher operational overhead for tuning and managing false positives. Total cost of ownership varies by organization size and maturity.',
-                        'score': 26,
-                        'created_utc': 1700047000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'comp8',
-                        'author': 'future_focused',
-                        'body': 'Consider the roadmap and innovation pace. AI tools are evolving rapidly while traditional platforms may have more mature but slower-evolving feature sets.',
-                        'score': 23,
-                        'created_utc': 1700048000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    }
-                ],
-                'thread_url': 'competitive_analysis_1',
-                'extracted_at': datetime.now().isoformat()
+                "author": "JustNobre",
+                "body": "If you adapt and AI doesn't take your job you win. If you adapt and AI takes your job you might be able to work with AI or pivot to another area. If AI doesn't take your job and you don't adapt you will be in the same place, probably with less career choices.",
+                "score": 1,
+                "created_utc": 1752402627
             },
-
-            # Thread 6: Implementation Challenges
             {
-                'post': {
-                    'id': 'implementation_1',
-                    'title': 'Challenges implementing AI security tools in enterprise environments',
-                    'selftext': 'Our organization is considering AI-powered security tools but we are concerned about implementation complexity. What challenges should we expect and how do we prepare?',
-                    'author': 'implementation_manager',
-                    'score': 31,
-                    'upvote_ratio': 0.82,
-                    'num_comments': 6,
-                    'created_utc': 1700050000,
-                    'subreddit': 'cybersecurity',
-                    'permalink': '/implementation_1/',
-                    'url': 'https://reddit.com/r/cybersecurity/comments/implementation_1/'
-                },
-                'comments': [
-                    {
-                        'id': 'impl1',
-                        'author': 'change_management',
-                        'body': 'Staff resistance is a major challenge. Security teams worry about job security and may not trust AI recommendations. Change management and training are critical for success.',
-                        'score': 28,
-                        'created_utc': 1700051000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'impl2',
-                        'author': 'integration_expert',
-                        'body': 'Technical integration is complex. Legacy systems, network segmentation, and access controls create deployment challenges. Plan for longer implementation timelines.',
-                        'score': 34,
-                        'created_utc': 1700052000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'impl3',
-                        'author': 'data_privacy_officer',
-                        'body': 'Data privacy and compliance concerns are significant. AI tools need access to sensitive data and systems. Legal and compliance review is essential before deployment.',
-                        'score': 31,
-                        'created_utc': 1700053000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'impl4',
-                        'author': 'budget_planner',
-                        'body': 'Hidden costs add up quickly. Training, customization, integration, and ongoing tuning require significant resources beyond the license fees.',
-                        'score': 26,
-                        'created_utc': 1700054000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'impl5',
-                        'author': 'performance_engineer',
-                        'body': 'System performance impact can be substantial. AI tools are resource-intensive and may affect network and system performance during scanning periods.',
-                        'score': 24,
-                        'created_utc': 1700055000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    },
-                    {
-                        'id': 'impl6',
-                        'author': 'success_metrics',
-                        'body': 'Defining success metrics is challenging. Traditional security metrics may not apply to AI tools. Establish clear KPIs before implementation to measure value.',
-                        'score': 29,
-                        'created_utc': 1700056000,
-                        'parent_id': None,
-                        'replies_count': 0,
-                        'depth': 0
-                    }
-                ],
-                'thread_url': 'implementation_1',
-                'extracted_at': datetime.now().isoformat()
+                "author": "Loud-Run-9725",
+                "body": "Penetration testing requiring more creativity and human intervention (business logic flaws, broken auth, etc) are going to require humans. It's just that so many penetration testers spend more time on the classes of vulns XBOW is finding since they are easier to find and exploit. Just like everything else in tech, AI is going to be great at augmenting human activities but not fully replace.",
+                "score": 1,
+                "created_utc": 1752665437
+            },
+            {
+                "author": "greybrimstone",
+                "body": "XBOW does not perform nearly as well as they make it sound. It is, for all intents and purposes, a really cool automated vulnerability scanner. The experiments they've done pitting their AI against humans have been heavily biased. Their rankings on bug bounty programs, speak to quantity of easy-to-find issues, not quality. AI cannot compete with human creativity, intuition, and ability to make leaps. AI only knows what it was trained on. Sure, it's great and useful, but not at all as capable as a real tester. If XBOW wants a real experiment, we can design one that has no bias and we can provide the testers too.",
+                "score": 2,
+                "created_utc": 1755741602
             }
         ]
         
-        logger.info(f"Got {len(threads)} threads with {sum(len(t['comments']) for t in threads)} total comments")
+        # Add cybersecurity thread
+        threads.append({
+            'post': {
+                'id': '1ly9nxf',
+                'title': 'Is Penetration Testing still worth it after seeing XBOW at work?',
+                'selftext': 'So...Recently, some of my seniors conducted a workshop about "Agentic AI" and its scope. The speaker at that particular workshop actually worked at a company developing AI agents. He asked us a question along the lines "Can AI take jobs of a Bug Bounty hunter or a Pentester in the near future?". I know AI has a lot of capabilities but these things seem to complex for an AI so I said no. Well, then he told us about XBOW and its accuracy in finding bugs, I had second thoughts. XBOW is an AI agent and it is currently at the third place in the United States of America on Hackerone. It was at first place but dropped down to third. I\'m pursuing my cybersecurity career as a penetration tester and I just wanna know should I proceed on that path or should I change it? I still want to do it as I am more interested in it but now I\'m having double thoughts.',
+                'author': 'RayyanRA7',
+                'score': 0,
+                'upvote_ratio': 0.39,
+                'num_comments': 17,
+                'created_utc': 1752350549,
+                'subreddit': 'cybersecurity',
+                'permalink': '/r/cybersecurity/comments/1ly9nxf/is_penetration_testing_still_worth_it_after/',
+                'url': 'https://www.reddit.com/r/cybersecurity/comments/1ly9nxf/is_penetration_testing_still_worth_it_after/'
+            },
+            'comments': cybersecurity_comments,
+            'thread_url': '1ly9nxf',
+            'extracted_at': datetime.now().isoformat()
+        })
         
-        # Verify we have real URLs
-        for thread in threads:
-            logger.info(f"Thread: {thread['post']['title'][:50]}... - URL: {thread['post']['url']}")
+        # Parse pentesting subreddit data (document 2)
+        pentesting_comments = [
+            {
+                "author": "Clean-Drop9629",
+                "body": "I recently spoke with a contact at one of the organizations that has received a significant number of vulnerability reports from XBOW. They shared that tools like XBOW have made their work substantially more difficult, as they now spend countless hours triaging and validating reports many of which turn out to be false positives or issues of such low criticality that they fall outside the organization's risk threshold. While XBOW may appear impressive due to the volume of submissions, the quality and relevance of many of these findings are questionable, ultimately straining the receiving team's resources.",
+                "score": 3,
+                "created_utc": 1751223076
+            },
+            {
+                "author": "619Smitty",
+                "body": "I think eventually it will, like most things. Once AI's complex problem solving issues improve, in conjunction with self-improvement capabilities, it will be able to do a lot of automation across the board.",
+                "score": 2,
+                "created_utc": 1751156217
+            },
+            {
+                "author": "Vivid_Cod_2109",
+                "body": "Not yet and the reason is not because of critical thinking of AI but it is hard to set up for XBOW to pentest in a complex environment.",
+                "score": 2,
+                "created_utc": 1751156372
+            },
+            {
+                "author": "AttackForge",
+                "body": "They will never be able to test for business logic and design flaws.",
+                "score": 4,
+                "created_utc": 1751152037
+            },
+            {
+                "author": "Reasonable_Cut8116",
+                "body": "I dont think it will fully replace senior pentesters but it will absolutely replace your current vulnerability scanner and junior pentesters. I own an MSP/MSSP and we use a platform called StealthNet AI(stealthnet.ai) to offer automated pentests via AI agents. They have a fleet of AI agents (External,Vishing,API,etc).Their API/Web agent is really impressive it finds things that traditional vulnerability scanners miss due to not understanding business logic. It also writes some of the best pentest reports iv seen, they look human written its impossible to tell. Overall they perform at the level of a junior - intermediate pentester which is really good considering your average junior pentester is going to cost you $50 an hour. Its defiantly game changing technology but its not going to replace a senior pentester. This type of tech is still brand new. Now 5 years from now things might be different I think most pentest agents will be senior level by then.",
+                "score": 1,
+                "created_utc": 1751899180
+            },
+            {
+                "author": "latnGemin616",
+                "body": "If its anything like running a Nessus scan, I go with the consensus and say NO. Why? We have Snyk that can check code quality for vulnerabilties. We have SAST/DAST solutions that require human intervention to interpret findings and rule out false-negatives/false-positives. And to the point about Nessus scans, there's still a human that as to filter the signal from the noise. Not everything in a scan is a legit finding. Where I can see AI being a benefit is for those who are stuck with a finding or need a way to proofread their work.",
+                "score": 1,
+                "created_utc": 1751157432
+            },
+            {
+                "author": "Strange-Mountain1810",
+                "body": "Maybe the shitty pentesters lol",
+                "score": 1,
+                "created_utc": 1751163164
+            }
+        ]
+        
+        # Add pentesting thread
+        threads.append({
+            'post': {
+                'id': '1lmzvx8',
+                'title': 'Will XBOW or AIs be able to replace Pentesters?',
+                'selftext': 'How do you see the future of Pentesters with this trend of AIs that do not stop coming out.',
+                'author': 'bjnc_',
+                'score': 0,
+                'upvote_ratio': 0.33,
+                'num_comments': 15,
+                'created_utc': 1751151764,
+                'subreddit': 'Pentesting',
+                'permalink': '/r/Pentesting/comments/1lmzvx8/will_xbow_or_ais_be_able_to_replace_pentesters/',
+                'url': 'https://www.reddit.com/r/Pentesting/comments/1lmzvx8/will_xbow_or_ais_be_able_to_replace_pentesters/'
+            },
+            'comments': pentesting_comments,
+            'thread_url': '1lmzvx8',
+            'extracted_at': datetime.now().isoformat()
+        })
+        
+        # Parse hacking tutorials subreddit data (document 3)
+        hacking_tutorials_comments = [
+            {
+                "author": "Sqooky",
+                "body": "AI is just another tool to help us do work. We have tens of products in our suite and it still wont catch vulnerabilities that humans can find. Lots of companies don't like tossing their data into a black-box. Especially proprietary and potentially vulnerability related data. Mainly because of loss of control.",
+                "score": 3,
+                "created_utc": 1751180043
+            },
+            {
+                "author": "Safe_Nobody_760",
+                "body": "so why did you call it snake oil? by default snake oil is not the real deal, yet you are saying this is something else?",
+                "score": 2,
+                "created_utc": 1751196514
+            }
+        ]
+        
+        # Add hacking tutorials thread
+        threads.append({
+            'post': {
+                'id': '1ln80yl',
+                'title': 'Is xbow ai snake oil or the real deal',
+                'selftext': 'What do you think? Its scary to be honest',
+                'author': 'Impossible-Line1070',
+                'score': 0,
+                'upvote_ratio': 0.5,
+                'num_comments': 11,
+                'created_utc': 1751179027,
+                'subreddit': 'Hacking_Tutorials',
+                'permalink': '/r/Hacking_Tutorials/comments/1ln80yl/is_xbow_ai_snake_oil_or_the_real_deal/',
+                'url': 'https://www.reddit.com/r/Hacking_Tutorials/comments/1ln80yl/is_xbow_ai_snake_oil_or_the_real_deal/'
+            },
+            'comments': hacking_tutorials_comments,
+            'thread_url': '1ln80yl',
+            'extracted_at': datetime.now().isoformat()
+        })
+        
+        # Parse bug bounty subreddit data (document 4)
+        bugbounty_comments = [
+            {
+                "author": "chopper332nd",
+                "body": "As a customer of hacker one I'm more worried about the crap we're gunna have to sort through now 🤷‍♂️ We have scanners and other companies that offer AI agents for pentesting which find the low hanging fruit. We have a Bug Bounty program to find more nuanced vulnerabilities in our products that other security testing can't find.",
+                "score": 21,
+                "created_utc": 1749712425
+            },
+            {
+                "author": "k4lashhnikov",
+                "body": "The human factor is always required for logic errors, vertical or horizontal scaling, AI and automated tools cannot understand the business context. If AIs have vulnerabilities and are not imperfect, what makes you think they will replace the human hacker?",
+                "score": 14,
+                "created_utc": 1749703837
+            },
+            {
+                "author": "k4lashhnikov",
+                "body": "Sure, they can surpass human capabilities but there is little point in analyzing hundreds of thousands of endpoints to find uninteresting things or false positives, If an AI analyzes misconfigurations of JS, code, or exposed credentials, it cannot (for now) have the ability to manually modify things that apparently work well. For example, a step-by-step business flow, if the AI superficially sees that the flow is correct, it will leave it as is, but a human has the idea of seeing what happens if a specific step is skipped, or if you decide to give a random input with random characters and cause an error on purpose, those kinds of subtle things are the ones that from my perspective are impossible to replace the human hacker. But of course, AI will advance without precedent, this is where we as hackers have time to study and look for vulnerabilities in the AI itself, in fact there are bug bounty or red team programs There is an OWASP 10 for AI especially, it is advancing faster than its security is advancing with it, so don't be discouraged, there are enough bugs for everyone. 😃",
+                "score": 4,
+                "created_utc": 1749743477
+            },
+            {
+                "author": "6W99ocQnb8Zy17",
+                "body": "The post-AI world is just another pivot point, same as post-printing-press, or post-computer blah. When the technology changes rapidly, there will always be people who struggle to make the change. But there will also be people who not only accept, but embrace the change. The choice boils down to whether you want to be an unemployed cinema pianist or not ;)",
+                "score": 7,
+                "created_utc": 1749713809
+            },
+            {
+                "author": "InvestmentOk1962",
+                "body": "yea bro i think u should just leave if u have this intense dilemma if u want money learn anything else or if want love this then do even if the whole world doesnt",
+                "score": 3,
+                "created_utc": 1749702658
+            },
+            {
+                "author": "Reasonable_Cut8116",
+                "body": "It does surprisingly well. I have heard of Xbow. We use a similar tool from StealthNet AI(stealthnet.ai). They have a fleet of AI agents to automate penetration testing. Compared to normal vulnerability scanners they perform 100x better. You can think of them as a really smart vulnerbility scanner or a junior pentester. They can perform really well but it wont be able to find everything. More complex attacks will still require humans and I dont think thats going to change any time soon. I actually think you will see a lot of AI + Human as you get the best of both worlds. A senior pentester who has access to an army of junior level AI pentesters will be able to do 100x the amount of work. Just like anything else AI agents are a tool that will enable senior pentesters to move 100x faster. It might replace junior level testers but you will always need a human to do more complex attacks.",
+                "score": 2,
+                "created_utc": 1757041432
+            }
+        ]
+        
+        # Add bug bounty thread
+        threads.append({
+            'post': {
+                'id': '1l97esk',
+                'title': 'How AI is affecting pentesting and bug bounties',
+                'selftext': 'Recently, I came across with a project named "Xbow" and it\'s actually the current top US-based hacker on Hackerone\'s leaderboard. It\'s a fully automated AI agent trained on real vulnerability data and will be available soon. Do you think it\'s still worth to learn pentesting and get into bug bounties? I\'m currently learning and seeing this got me thinking if I should continue or maybe move to another field inside red team.',
+                'author': 'S4vz4d',
+                'score': 14,
+                'upvote_ratio': 0.7,
+                'num_comments': 12,
+                'created_utc': 1749684165,
+                'subreddit': 'bugbounty',
+                'permalink': '/r/bugbounty/comments/1l97esk/how_ai_is_affecting_pentesting_and_bug_bounties/',
+                'url': 'https://www.reddit.com/r/bugbounty/comments/1l97esk/how_ai_is_affecting_pentesting_and_bug_bounties/'
+            },
+            'comments': bugbounty_comments,
+            'thread_url': '1l97esk',
+            'extracted_at': datetime.now().isoformat()
+        })
+        
+        logger.info(f"Loaded {len(threads)} threads with {sum(len(t['comments']) for t in threads)} total comments")
         
         # Store the data
         self.threads_data = threads
@@ -707,10 +488,10 @@ class GTMIntelligenceAssistant:
         success = self.vector_store.add_threads(threads)
         
         if success:
-            logger.info("Data loaded and processed successfully")
+            logger.info("Real Reddit data loaded and processed successfully")
             
             # Test search immediately
-            test_result = self.vector_store.search("pain points problems XBOW", n_results=3)
+            test_result = self.vector_store.search("XBOW pain points problems", n_results=3)
             logger.info(f"Test search returned {len(test_result['documents'])} results")
             
             return True
