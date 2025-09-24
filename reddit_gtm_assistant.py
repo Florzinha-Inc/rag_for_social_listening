@@ -56,7 +56,8 @@ class GTMVectorStore:
                         'subreddit': post['subreddit'],
                         'score': comment['score'],
                         'url': post['url'],
-                        'doc_type': 'comment'
+                        'doc_type': 'comment',
+                        'author': comment['author']
                     })
         
         logger.info(f"Created {len(self.documents)} documents")
@@ -143,7 +144,8 @@ class GTMIntelligenceRAG:
                 context_parts.append(f"""
 [{metadata['doc_type']}] from r/{metadata['subreddit']} (Score: {metadata['score']}, Relevance: {relevance:.2f})
 Title: {metadata['title']}
-Content: {doc[:600]}
+Author: {metadata.get('author', 'Unknown')}
+Content: "{doc[:600]}"
 ---
 """)
         
@@ -167,15 +169,18 @@ REDDIT DISCUSSIONS:
 
 QUERY: {query}
 
-Analyze these authentic Reddit discussions and provide actionable insights for product marketing teams. Focus on:
+Analyze these authentic Reddit discussions and provide actionable insights for product marketing teams. Structure your response as follows:
 
 1. **Key Insights**: Main takeaways from the discussions
-2. **Pain Points**: User frustrations and problems mentioned
+2. **Pain Points**: User frustrations and problems mentioned  
 3. **Market Sentiment**: Overall community perception
 4. **Strategic Implications**: What this means for product strategy
 5. **Recommended Actions**: Specific next steps
 
-Be specific and actionable in your analysis."""
+IMPORTANT: Include direct quotes from the Reddit discussions to support your analysis. Use quotes like this format:
+"[Quote from user]" - username from r/subreddit
+
+Use quotes as evidence to ground your insights in actual user feedback. Be specific and actionable in your analysis."""
         
         try:
             response = self.model.generate_content(prompt)
