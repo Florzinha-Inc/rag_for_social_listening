@@ -696,6 +696,10 @@ class GTMIntelligenceAssistant:
         
         logger.info(f"Got {len(threads)} threads with {sum(len(t['comments']) for t in threads)} total comments")
         
+        # Verify we have real URLs
+        for thread in threads:
+            logger.info(f"Thread: {thread['post']['title'][:50]}... - URL: {thread['post']['url']}")
+        
         # Store the data
         self.threads_data = threads
         
